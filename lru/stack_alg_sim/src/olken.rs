@@ -190,6 +190,22 @@ mod tests {
     use crate::LRU;
 
     #[test]
+    fn simple() {
+        let mut cache = LRUSplay::<String>::new();
+        let mut dists = Vec::new();
+        for c in "acbc".chars() {
+            dists.push(cache.rec_access(c.to_string()));
+        }
+
+        let key = "c".to_string();
+        let result = cache.rec_access(key);
+
+        println!("{:?}", dists);
+        println!("{:?}", result);
+        // assert_eq!(dists, [None, None, None]);
+    }
+
+    #[test]
     fn cyclic() {
         let mut analyzer = LRUSplay::<String>::new();
         let mut dists = Vec::new();
