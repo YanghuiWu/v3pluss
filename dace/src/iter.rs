@@ -1,7 +1,7 @@
-use crate::ast::*;
 use std::iter::Iterator;
 use std::rc::Rc;
 
+use crate::ast::*;
 use crate::ast::*;
 
 ///This struct is used to implement a custom iterator. It contains a stack field, which is a vector of tuples. Each tuple contains a Node and a usize representing the number of children of the node that have been visited.
@@ -23,7 +23,11 @@ impl Walk {
     /// This checks the last node in the stack and its visited count. Depending on the type of the Node (Loop, Ref, Block, or Branch), it updates the stack and returns the Node if it's being visited for the first time. Steps through the AST nodes, returning the next node.
     fn step(&mut self) -> Option<Rc<Node>> {
         let (node, visited) = self.stack.pop()?;
-        let result = if visited == 0 { Some(node.clone()) } else { None };
+        let result = if visited == 0 {
+            Some(node.clone())
+        } else {
+            None
+        };
         // Visit the node for the first time
 
         match &node.as_ref().stmt {
@@ -36,7 +40,8 @@ impl Walk {
             Stmt::Branch(branch) => {
                 if visited == 1 && branch.else_body.is_some() {
                     self.stack.push((node.clone(), visited + 1));
-                    self.stack.push((branch.else_body.as_ref().unwrap().clone(), 0));
+                    self.stack
+                        .push((branch.else_body.as_ref().unwrap().clone(), 0));
                 } else if visited == 0 {
                     self.stack.push((node.clone(), visited + 1));
                     self.stack.push((branch.then_body.clone(), 0));
