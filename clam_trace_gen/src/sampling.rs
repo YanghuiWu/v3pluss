@@ -28,6 +28,7 @@ pub fn assign_ref_id(node: &mut Rc<Node>) {
     println!("number of ID assigned: {}", counter);
 }
 
+#[allow(dead_code)]
 pub fn print_tree(node: &Rc<Node>, level: usize) {
     print!("{:indent$}", "", indent = level * 2);
     match &node.stmt {
@@ -150,7 +151,7 @@ fn trace_ri(
         }
         Stmt::Block(blk) => blk
             .iter()
-            .for_each(|s| trace_ri(s, lat_hash, ivec.clone(), hist, csv)),
+            .for_each(|s| trace_ri(s, lat_hash, ivec, hist, csv)),
         Stmt::Branch(stmt) => {
             if (stmt.cond)(ivec) {
                 trace_ri(&stmt.then_body, lat_hash, ivec, hist, csv)

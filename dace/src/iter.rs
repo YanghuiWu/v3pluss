@@ -2,7 +2,6 @@ use std::iter::Iterator;
 use std::rc::Rc;
 
 use crate::ast::*;
-use crate::ast::*;
 
 ///This struct is used to implement a custom iterator. It contains a stack field, which is a vector of tuples. Each tuple contains a Node and a usize representing the number of children of the node that have been visited.
 pub struct Walk {
