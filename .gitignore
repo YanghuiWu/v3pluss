@@ -20,6 +20,7 @@ Cargo.lock
 /target
 /Cargo.lock
 
+.dev
 .idea
 .DS_Store
 .vscode

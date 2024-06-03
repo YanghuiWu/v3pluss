@@ -1,13 +1,16 @@
-use crate::ast::*;
 use std::iter::Iterator;
 use std::rc::Rc;
 
+use crate::ast::*;
+
+///This struct is used to implement a custom iterator. It contains a stack field, which is a vector of tuples. Each tuple contains a Node and a usize representing the number of children of the node that have been visited.
 pub struct Walk {
     // usize is the current body statement index, if there is any
     stack: Vec<(Rc<Node>, usize)>,
 }
 
 impl Walk {
+    /// It takes a reference to a Node and initializes the stack with a tuple containing the Node and 0 (indicating no children have been visited yet).
     pub fn new(root: &Rc<Node>) -> Self {
         Walk {
             stack: vec![(root.clone(), 0)],
@@ -16,65 +19,43 @@ impl Walk {
         //     if lp.body.borrow().len() > 0 { Some(0) } else { None } }))] }
     }
 
+    /// This checks the last node in the stack and its visited count. Depending on the type of the Node (Loop, Ref, Block, or Branch), it updates the stack and returns the Node if it's being visited for the first time. Steps through the AST nodes, returning the next node.
     fn step(&mut self) -> Option<Rc<Node>> {
-        match self.stack.last().cloned() {
-            None => None, // stack already empty
-            Some((node, visited)) => {
-                // if none has been visited, this is the first time we enter the node
-                let mut result = None;
-                if visited == 0 {
-                    result = Some(node.clone());
+        let (node, visited) = self.stack.pop()?;
+        let result = if visited == 0 {
+            Some(node.clone())
+        } else {
+            None
+        };
+        // Visit the node for the first time
+
+        match &node.as_ref().stmt {
+            Stmt::Loop(loop_stmt) => {
+                if visited < loop_stmt.body.len() {
+                    self.stack.push((node.clone(), visited + 1));
+                    self.stack.push((loop_stmt.body[visited].clone(), 0));
                 }
-                match &node.as_ref().stmt {
-                    Stmt::Loop(children) => {
-                        if visited >= children.body.len() {
-                            self.stack.pop();
-                        } else {
-                            self.stack.last_mut().unwrap().1 += 1;
-                            self.stack.push((children.body[visited].clone(), 0));
-                        }
-                    }
-                    Stmt::Ref(_) => {
-                        self.stack.pop();
-                    }
-                    Stmt::Block(children) => {
-                        if visited >= children.len() {
-                            self.stack.pop();
-                        } else {
-                            self.stack.last_mut().unwrap().1 += 1;
-                            self.stack.push((children[visited].clone(), 0));
-                        }
-                    }
-                    Stmt::Branch(stmt) => {
-                        let stmt_len = 1 + stmt.else_body.is_some() as usize;
-                        match visited {
-                            _ if visited >= stmt_len => {
-                                self.stack.pop();
-                            }
-                            0 => {
-                                self.stack.last_mut().unwrap().1 += 1;
-                                self.stack.push((stmt.then_body.clone(), 0));
-                            }
-                            1 => {
-                                if let Some(else_body) = &stmt.else_body {
-                                    self.stack.last_mut().unwrap().1 += 1;
-                                    self.stack.push((else_body.clone(), 0));
-                                } else {
-                                    self.stack.pop();
-                                }
-                            }
-                            _ => unreachable!("visited > 1 in branch is not possible"),
-                        }
-                    }
-                }
-                result
             }
+            Stmt::Branch(branch) => {
+                if visited == 1 && branch.else_body.is_some() {
+                    self.stack.push((node.clone(), visited + 1));
+                    self.stack
+                        .push((branch.else_body.as_ref().unwrap().clone(), 0));
+                } else if visited == 0 {
+                    self.stack.push((node.clone(), visited + 1));
+                    self.stack.push((branch.then_body.clone(), 0));
+                }
+            }
+            _ => {} // AryRef (pop) or Block (handled in the same way as loop but without .body)
         }
+        result
     }
 }
 
 impl Iterator for Walk {
     type Item = Rc<Node>;
+
+    /// The next method uses the step function to advance the iterator until a Node is found or the stack is empty.
     fn next(&mut self) -> Option<Self::Item> {
         while !self.stack.is_empty() {
             if let Some(x) = self.step() {
@@ -97,6 +78,9 @@ mod test {
         Node::extend_loop_body(&mut aloop, &mut aref);
 
         let awalk = Walk::new(&aloop);
+        // for stmt in awalk {
+        //     println!("Thia is a - {:?}\n", stmt.as_ref().stmt.stmt_type());
+        // }
         assert_eq!(awalk.fold(0, |cnt, _stmt| cnt + 1), 2);
     }
 
@@ -110,6 +94,32 @@ mod test {
         let mut iloop = Node::new_single_loop("i", 0, 1);
         Node::extend_loop_body(&mut iloop, &mut jloop);
         Node::extend_loop_body(&mut iloop, &mut bref);
+        let awalk = Walk::new(&iloop);
+        // for stmt in awalk {
+        //     println!("Thia is a - {:?}\n", stmt.as_ref().stmt.stmt_type());
+        // }
+        assert_eq!(awalk.fold(0, |cnt, _stmt| cnt + 1), 4);
+    }
+
+    #[test]
+    fn simple_node() {
+        // Simple single node
+        let node = Node::new_ref("A", vec![1], |_| vec![0]);
+        let awalk = Walk::new(&node);
+        assert_eq!(awalk.fold(0, |cnt, _stmt| cnt + 1), 1);
+    }
+
+    #[test]
+    fn nested_loops() {
+        // Nested loops: i { j { k { a[0] } } }
+        let mut aref = Node::new_ref("A", vec![1], |_| vec![0]);
+        let mut kloop = Node::new_single_loop("k", 0, 1);
+        Node::extend_loop_body(&mut kloop, &mut aref);
+        let mut jloop = Node::new_single_loop("j", 0, 1);
+        Node::extend_loop_body(&mut jloop, &mut kloop);
+        let mut iloop = Node::new_single_loop("i", 0, 1);
+        Node::extend_loop_body(&mut iloop, &mut jloop);
+
         let awalk = Walk::new(&iloop);
         assert_eq!(awalk.fold(0, |cnt, _stmt| cnt + 1), 4);
     }

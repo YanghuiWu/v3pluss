@@ -11,13 +11,13 @@ fn main() {
         .init();
     let mut wrapping_loop = Vec::new();
     let mut trace = polybench::gemm(128);
-    let mut ref_coutner = 0;
+    let mut ref_counter = 0;
     let start = Instant::now();
     // let hist = static_rd::trace::trace(&mut trace);
     // let hist = static_rd::trace::tracing_ri(&mut trace);
     let _hist = sampling::tracing_ri(&mut trace);
     let mut ans = HashMap::new();
-    arybase::sample_collect(&trace, &mut wrapping_loop, &mut ans, &mut ref_coutner);
+    arybase::sample_collect(&trace, &mut wrapping_loop, &mut ans, &mut ref_counter);
     let _samples: HashMap<usize, std::collections::BTreeSet<Vec<usize>>> =
         arybase::sample_gen(&mut ans, 0.1);
     let end = Instant::now();

@@ -1,12 +1,10 @@
+use std::rc::Rc;
+
 use dace::arybase::set_arybase;
 use dace::ast::{AryRef, LoopBound, Node, Stmt};
 use hist::Hist;
 use list_serializable::ListSerializable;
-
 use stack_alg_sim::LRU;
-
-use std::ptr::null;
-use std::rc::Rc;
 
 fn access2addr(ary_ref: &AryRef, ivec: &[i32]) -> usize {
     let ary_index = (ary_ref.sub)(ivec);
@@ -114,8 +112,9 @@ pub fn trace<T: LRU<usize>>(
 
 #[cfg(test)]
 mod test {
-    use super::*;
     use stack_alg_sim::stack::LRUStack;
+
+    use super::*;
 
     #[test]
     fn test_access2addr() {
