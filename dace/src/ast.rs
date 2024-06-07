@@ -392,6 +392,18 @@ mod tests {
     }
 
     #[test]
+    fn matrix_ref() {
+        let ar = AryRef {
+            name: "A".to_string(),
+            dim: vec![10, 10],
+            sub: Box::new(|ijk| vec![ijk[0] as usize, ijk[1] as usize]),
+            base: None,
+            ref_id: None,
+        };
+        assert_eq!((ar.sub)(&[1, 2, 3]), [1, 2]);
+    }
+
+    #[test]
     fn matmul() {
         let n: usize = 100; // array dim
         let ubound = n as i32; // loop bound
