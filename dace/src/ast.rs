@@ -68,8 +68,8 @@ pub enum LoopBound {
     },
 }
 
-impl std::fmt::Debug for LoopBound {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
+impl Debug for LoopBound {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), std::fmt::Error> {
         match self {
             LoopBound::Fixed(x) => write!(f, "Fixed({x})"),
             LoopBound::Dynamic(_) => write!(f, "Dynamic"),
@@ -91,8 +91,8 @@ pub struct AryRef {
     pub ref_id: Option<usize>,
 }
 
-impl std::fmt::Debug for AryRef {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
+impl Debug for AryRef {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), std::fmt::Error> {
         write!(f, "ArrayRef({}, {:?} {:?})", self.name, self.dim, self.base)
     }
 }
@@ -136,28 +136,16 @@ macro_rules! dynamic {
 #[macro_export]
 macro_rules! loop_node {
     ($ivar:expr, $lb:expr => $ub:expr) => {
-        $crate::ast::Node::new_single_loop_general(
-            $ivar,
-            $lb.into(),
-            $ub.into(),
-            |i, ub| i < ub,
-            |i| i + 1,
-        )
+        $crate::ast::Node::new_loop($ivar, $lb.into(), $ub.into(), |i, ub| i < ub, |i| i + 1)
     };
     ($ivar:expr, $lb:expr => $ub:expr, step: $step:expr) => {
-        $crate::ast::Node::new_single_loop_general(
-            $ivar,
-            $lb.into(),
-            $ub.into(),
-            |i, ub| i < ub,
-            $step,
-        )
+        $crate::ast::Node::new_loop($ivar, $lb.into(), $ub.into(), |i, ub| i < ub, $step)
     };
     ($ivar:expr, $lb:expr => $ub:expr, test: $test:expr) => {
-        $crate::ast::Node::new_single_loop_general($ivar, $lb.into(), $ub.into(), $test, |i| i + 1)
+        $crate::ast::Node::new_loop($ivar, $lb.into(), $ub.into(), $test, |i| i + 1)
     };
     ($ivar:expr, $lb:expr => $ub:expr, test: $test:expr, step: $step:expr) => {
-        $crate::ast::Node::new_single_loop_general($ivar, $lb.into(), $ub.into(), $test, $step)
+        $crate::ast::Node::new_loop($ivar, $lb.into(), $ub.into(), $test, $step)
     };
 }
 
@@ -179,7 +167,59 @@ macro_rules! branch_node {
     };
 }
 
+fn print_bounds(bound: &LoopBound) {
+    match bound {
+        LoopBound::Fixed(val) => print!("{}", val),
+        LoopBound::Dynamic(_) => print!("Dynamic"),
+        LoopBound::Affine { a, b } => print!("Affine({:?}, {})", a, b),
+    }
+}
+
 impl Node {
+    pub fn print_structure(&self, indent: usize) {
+        let indentation = " ".repeat(indent);
+        match &self.stmt {
+            Stmt::Loop(loop_stmt) => {
+                print!("{}Loop: {}: ", indentation, loop_stmt.iv);
+                print_bounds(&loop_stmt.lb);
+                print!(" to ");
+                print_bounds(&loop_stmt.ub);
+                println!("  * Next index: {} *", (loop_stmt.step)(0));
+
+                for child in &loop_stmt.body {
+                    child.print_structure(indent + 2);
+                }
+            }
+            Stmt::Ref(ary_ref) => {
+                let indices = (ary_ref.sub)(&[0, 1, 2, 3]); // Assuming a 3-dimensional array
+                let named_indices: Vec<String> = indices.iter().enumerate().map(|(_idx, val)| {
+                    match val {
+                        0 => "i".to_string(),
+                        1 => "j".to_string(),
+                        2 => "k".to_string(),
+                        3 => "l".to_string(),
+                        _ => format!("Dimension > 3: {}", val),
+                    }
+                }).collect();
+                println!("{}{}[{}]", indentation, ary_ref.name, named_indices.join(", "));
+            }
+            Stmt::Block(children) => {
+                println!("{}Block", indentation);
+                for child in children {
+                    child.print_structure(indent + 2);
+                }
+            }
+            Stmt::Branch(branch_stmt) => {
+                println!("{}Branch then", indentation);
+                branch_stmt.then_body.print_structure(indent + 2);
+                if let Some(else_body) = &branch_stmt.else_body {
+                    println!("{}Else", indentation);
+                    else_body.print_structure(indent + 2);
+                }
+            }
+        }
+    }
+
     /// Create a new Node with a given statement.
     pub fn new_node(a_stmt: Stmt) -> Rc<Node> {
         Rc::new(Node {
@@ -202,59 +242,43 @@ impl Node {
         Node::new_node(Stmt::Ref(ref_stmt))
     }
 
-    /// Create a new Node representing a simple loop with a fixed range.
-    pub fn new_single_loop(ivar: &str, low: i32, high: i32) -> Rc<Node> {
-        let loop_stmt = LoopStmt {
-            iv: ivar.to_string(),
-            lb: LoopBound::Fixed(low),
-            ub: LoopBound::Fixed(high),
-            // test: |i| i<ub , step: |k| k+1,
-            test: Box::new(|i, ub| i < ub),
-            step: Box::new(|i| i + 1),
-            body: vec![],
-        };
-        Node::new_node(Stmt::Loop(loop_stmt))
-    }
-
-    /// Create a new Node representing a simple loop with a fixed range.
-    pub fn new_single_loop_dyn_ub<F>(ivar: &str, low: i32, ub: F) -> Rc<Node>
+    pub fn new_loop<F, G>(ivar: &str, lb: LoopBound, ub: LoopBound, test: F, step: G) -> Rc<Self>
     where
-        for<'a> F: Fn(&'a [i32]) -> i32 + 'static,
-    {
-        let loop_stmt = LoopStmt {
-            iv: ivar.to_string(),
-            lb: LoopBound::Fixed(low),
-            ub: LoopBound::Dynamic(Box::new(ub)),
-            // test: |i| i<ub , step: |k| k+1,
-            test: Box::new(|i, ub| i < ub),
-            step: Box::new(|i| i + 1),
-            body: vec![],
-        };
-        Node::new_node(Stmt::Loop(loop_stmt))
-    }
-
-    /// Create a new Node representing a simple loop with a fixed range.
-    pub fn new_single_loop_general<F, G>(
-        ivar: &str,
-        lb: LoopBound,
-        ub: LoopBound,
-        test: F,
-        step: G,
-    ) -> Rc<Node>
-    where
-        for<'a> F: Fn(i32, i32) -> bool + 'static,
-        for<'a> G: Fn(i32) -> i32 + 'static,
+        F: Fn(i32, i32) -> bool + 'static,
+        G: Fn(i32) -> i32 + 'static,
     {
         let loop_stmt = LoopStmt {
             iv: ivar.to_string(),
             lb,
             ub,
-            // test: |i| i<ub , step: |k| k+1,
             test: Box::new(test),
             step: Box::new(step),
             body: vec![],
         };
-        Node::new_node(Stmt::Loop(loop_stmt))
+        Self::new_node(Stmt::Loop(loop_stmt))
+    }
+
+    pub fn new_single_loop(ivar: &str, low: i32, high: i32) -> Rc<Self> {
+        Self::new_loop(
+            ivar,
+            LoopBound::Fixed(low),
+            LoopBound::Fixed(high),
+            |i, ub| i < ub,
+            |i| i + 1,
+        )
+    }
+
+    pub fn new_single_loop_dyn_ub<F>(ivar: &str, low: i32, ub: F) -> Rc<Self>
+    where
+        for<'a> F: Fn(&'a [i32]) -> i32 + 'static,
+    {
+        Self::new_loop(
+            ivar,
+            LoopBound::Fixed(low),
+            LoopBound::Dynamic(Box::new(ub)),
+            |i, ub| i < ub,
+            |i| i + 1,
+        )
     }
 
     /// Extend the body of a loop node with another node.
@@ -341,39 +365,22 @@ impl Node {
     }
 
     // Get the count of nodes in the loop tree.
-    #[allow(dead_code)]
     pub fn node_count(&self) -> u32 {
         match &self.stmt {
             //    The body of a loop is a vector of Node's, so we need to
             //    iterate over the vector and sum the sanity of each node.
-            Stmt::Loop(a_loop) => {
-                1 + a_loop
-                    .body
-                    .iter()
-                    .map(|x| x.as_ref().node_count())
-                    .sum::<u32>()
-            }
+            Stmt::Loop(a_loop) => 1 + a_loop.body.iter().map(|x| x.node_count()).sum::<u32>(),
             Stmt::Ref(_) => 1,
-            Stmt::Block(children) => {
-                1 + children
-                    .iter()
-                    .map(|x| x.as_ref().node_count())
-                    .sum::<u32>()
-            }
+            Stmt::Block(children) => 1 + children.iter().map(|x| x.node_count()).sum::<u32>(),
             Stmt::Branch(stmt) => {
                 stmt.then_body.node_count()
-                    + stmt.else_body.as_ref().map(|x| x.node_count()).unwrap_or(0)
+                    + stmt.else_body.as_ref().map_or(0, |x| x.node_count())
                     + 1
             }
         }
     }
 }
 
-// impl RefStmt {
-//     // A copy of the enclosing loops just for this reference.
-//     fn my_nest(&self) -> Rc<Node> {
-//     }
-// }
 
 #[cfg(test)]
 mod tests {
