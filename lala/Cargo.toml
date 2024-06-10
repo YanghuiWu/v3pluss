@@ -1,0 +1,8 @@
+[package]
+name = "lala"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+dace = { path = "../dace" }
+dace_tests = { path = "../dace_tests" }

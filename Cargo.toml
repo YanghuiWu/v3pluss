@@ -7,12 +7,12 @@ members = [
     "hist",
     "static_rd",
     "list_serializable",
-#    "polybenchrun",
     "lru/stack_test_cases",
     "lru/benches/lruvec_bench",
     "lru/benches/stack_alg_sim_bench",
     "static_ri",
-    "clam_trace_gen"
+    "clam_trace_gen",
+    "lala",
 ]
 
 [profile.release]

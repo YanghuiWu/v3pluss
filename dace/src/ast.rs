@@ -36,6 +36,7 @@ pub struct LoopStmt {
     // Now we assume step is iv = iv + 1
     pub step: Box<dyn Fn(i32) -> i32>,
     pub body: Vec<Rc<Node>>,
+    pub rank: usize,
 }
 
 impl Debug for LoopStmt {
@@ -184,7 +185,8 @@ impl Node {
                 print_bounds(&loop_stmt.lb);
                 print!(" to ");
                 print_bounds(&loop_stmt.ub);
-                println!("  * Next index: {} *", (loop_stmt.step)(0));
+                print!("  *Next index: {} *", (loop_stmt.step)(0));
+                println!("Rank {}", loop_stmt.rank);
 
                 for child in &loop_stmt.body {
                     child.print_structure(indent + 2);
@@ -192,16 +194,23 @@ impl Node {
             }
             Stmt::Ref(ary_ref) => {
                 let indices = (ary_ref.sub)(&[0, 1, 2, 3]); // Assuming a 3-dimensional array
-                let named_indices: Vec<String> = indices.iter().enumerate().map(|(_idx, val)| {
-                    match val {
+                let named_indices: Vec<String> = indices
+                    .iter()
+                    .enumerate()
+                    .map(|(_idx, val)| match val {
                         0 => "i".to_string(),
                         1 => "j".to_string(),
                         2 => "k".to_string(),
                         3 => "l".to_string(),
                         _ => format!("Dimension > 3: {}", val),
-                    }
-                }).collect();
-                println!("{}{}[{}]", indentation, ary_ref.name, named_indices.join(", "));
+                    })
+                    .collect();
+                println!(
+                    "{}{}[{}]",
+                    indentation,
+                    ary_ref.name,
+                    named_indices.join(", ")
+                );
             }
             Stmt::Block(children) => {
                 println!("{}Block", indentation);
@@ -254,6 +263,7 @@ impl Node {
             test: Box::new(test),
             step: Box::new(step),
             body: vec![],
+            rank: 0,
         };
         Self::new_node(Stmt::Loop(loop_stmt))
     }
@@ -380,7 +390,6 @@ impl Node {
         }
     }
 }
-
 
 #[cfg(test)]
 mod tests {
