@@ -1,6 +1,11 @@
 use std::fmt::{Debug, Formatter};
 use std::rc::{Rc, Weak};
 
+/// Type alias for the iteration vector, with i32 elements.
+pub type IterVec = Vec<i32>;
+/// Type alias for the array access indices, with usize elements.
+pub type AryAcc = Vec<usize>;
+
 /// Each loop and statement is a node in a loop tree.
 #[derive(Debug)]
 pub struct Node {
@@ -8,7 +13,6 @@ pub struct Node {
     parent: Weak<Node>,
 }
 
-/// Statements in the loop tree.
 #[derive(Debug)]
 pub enum Stmt {
     /// A single loop
@@ -17,6 +21,19 @@ pub enum Stmt {
     Ref(AryRef),
     Block(Vec<Rc<Node>>),
     Branch(BranchStmt),
+}
+
+pub struct AryRef {
+    pub name: String,
+    /// array dimensions, e.g. [5,5]
+    pub dim: Vec<usize>,
+    /// Subscript expressions: one function for each data dimension.
+    /// Each function takes the indices of its loop nest and returns indices of the array access.
+    #[allow(clippy::type_complexity)]
+    pub sub: Box<dyn for<'a> Fn(&'a [i32]) -> AryAcc>,
+    pub base: Option<usize>,
+    pub ref_id: Option<usize>,
+    pub ri: Vec<String>,
 }
 
 pub struct BranchStmt {
@@ -39,14 +56,19 @@ pub struct LoopStmt {
     pub rank: usize,
 }
 
-impl Debug for LoopStmt {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("LoopStmt")
-            .field("iv", &self.iv)
-            .field("lb", &self.lb)
-            .field("ub", &self.ub)
-            .field("body", &self.body)
-            .finish_non_exhaustive()
+pub enum LoopBound {
+    Fixed(i32),
+    #[allow(clippy::type_complexity)]
+    Dynamic(Box<dyn Fn(&[i32]) -> i32>),
+    Affine {
+        a: Vec<i32>,
+        b: i32,
+    },
+}
+
+impl Debug for AryRef {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), std::fmt::Error> {
+        write!(f, "ArrayRef({}, {:?} {:?})", self.name, self.dim, self.base)
     }
 }
 
@@ -59,14 +81,15 @@ impl Debug for BranchStmt {
     }
 }
 
-pub enum LoopBound {
-    Fixed(i32),
-    #[allow(clippy::type_complexity)]
-    Dynamic(Box<dyn Fn(&[i32]) -> i32>),
-    Affine {
-        a: Vec<i32>,
-        b: i32,
-    },
+impl Debug for LoopStmt {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("LoopStmt")
+            .field("iv", &self.iv)
+            .field("lb", &self.lb)
+            .field("ub", &self.ub)
+            // .field("body", &self.body)
+            .finish_non_exhaustive()
+    }
 }
 
 impl Debug for LoopBound {
@@ -78,30 +101,6 @@ impl Debug for LoopBound {
         }
     }
 }
-
-/// Array reference.
-pub struct AryRef {
-    pub name: String,
-    /// array dimensions, e.g. [5,5]
-    pub dim: Vec<usize>,
-    /// Subscript expressions: one function for each data dimension.  
-    /// Each function takes the indices of its loop nest and returns indices of the array access.
-    #[allow(clippy::type_complexity)]
-    pub sub: Box<dyn for<'a> Fn(&'a [i32]) -> AryAcc>,
-    pub base: Option<usize>,
-    pub ref_id: Option<usize>,
-}
-
-impl Debug for AryRef {
-    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), std::fmt::Error> {
-        write!(f, "ArrayRef({}, {:?} {:?})", self.name, self.dim, self.base)
-    }
-}
-
-/// Type alias for the iteration vector, with i32 elements.
-pub type IterVec = Vec<i32>;
-/// Type alias for the array access indices, with usize elements.
-pub type AryAcc = Vec<usize>;
 
 impl From<i32> for LoopBound {
     fn from(value: i32) -> Self {
@@ -185,8 +184,8 @@ impl Node {
                 print_bounds(&loop_stmt.lb);
                 print!(" to ");
                 print_bounds(&loop_stmt.ub);
-                print!("  *Next index: {} *", (loop_stmt.step)(0));
-                println!("Rank {}", loop_stmt.rank);
+                // print!("  *Next index: {}", (loop_stmt.step)(0));
+                println!(" *Rank_{}", loop_stmt.rank);
 
                 for child in &loop_stmt.body {
                     child.print_structure(indent + 2);
@@ -247,6 +246,7 @@ impl Node {
             sub: Box::new(ary_sub),
             base: None,
             ref_id: None,
+            ri: vec![],
         };
         Node::new_node(Stmt::Ref(ref_stmt))
     }
@@ -364,16 +364,6 @@ impl Node {
         })
     }
 
-    pub fn get_ub(&self) -> Option<i32> {
-        self.loop_only(|lp| {
-            if let LoopBound::Fixed(upperbound) = lp.ub {
-                upperbound
-            } else {
-                panic!("dynamic loop bound is not supported")
-            }
-        })
-    }
-
     // Get the count of nodes in the loop tree.
     pub fn node_count(&self) -> u32 {
         match &self.stmt {
@@ -403,6 +393,7 @@ mod tests {
             sub: Box::new(|iv| vec![(iv[0] as usize) + 1]),
             base: None,
             ref_id: None,
+            ri: vec![],
         };
         assert_eq!((ar.sub)(&[1]), [2]);
     }
@@ -415,6 +406,7 @@ mod tests {
             sub: Box::new(|ijk| vec![ijk[0] as usize, ijk[1] as usize]),
             base: None,
             ref_id: None,
+            ri: vec![],
         };
         assert_eq!((ar.sub)(&[1, 2, 3]), [1, 2]);
     }
@@ -460,6 +452,7 @@ mod tests {
         let mut i_loop = Node::new_single_loop("i", 0, ubound);
         Node::extend_loop_body(&mut i_loop, &mut j_loop);
 
+        println!("{:?}", j_loop.stmt);
         assert_eq!(i_loop.node_count(), 2);
     }
 
