@@ -1,9 +1,11 @@
 #![allow(dead_code, non_snake_case)]
+
+use std::rc::Rc;
+
 use dace::ast::Node;
 use dace::ast::Stmt;
 use dace::branch_node;
 use dace::loop_node;
-use std::rc::Rc;
 
 pub fn lu(n: usize) -> Rc<Node> {
     let ubound = n as i32;
@@ -412,7 +414,7 @@ pub fn _2mm(NI: usize, NJ: usize, NK: usize, NL: usize) -> Rc<Node> {
         vec![ijk[2] as usize, ijk[1] as usize]
     });
     let mut s_ref_d = Node::new_ref("d", vec![NI, NL], |ijk| {
-        vec![ijk[0] as usize, ijk[2] as usize]
+        vec![ijk[0] as usize, ijk[1] as usize]
     });
 
     let mut knk_loop_ref = Node::new_single_loop("k", 0, NK as i32);
@@ -422,8 +424,8 @@ pub fn _2mm(NI: usize, NJ: usize, NK: usize, NL: usize) -> Rc<Node> {
     Node::extend_loop_body(&mut knk_loop_ref, &mut s_ref_tmp);
 
     let mut jnj_loop_ref = Node::new_single_loop("j", 0, NJ as i32);
-    Node::extend_loop_body(&mut knk_loop_ref, &mut s_ref_tmp);
-    Node::extend_loop_body(&mut knk_loop_ref, &mut knk_loop_ref_clone);
+    Node::extend_loop_body(&mut jnj_loop_ref, &mut s_ref_tmp);
+    Node::extend_loop_body(&mut jnj_loop_ref, &mut knk_loop_ref_clone);
 
     let mut ini_loop_ref1 = Node::new_single_loop("i", 0, NI as i32);
     Node::extend_loop_body(&mut ini_loop_ref1, &mut jnj_loop_ref);
@@ -431,11 +433,11 @@ pub fn _2mm(NI: usize, NJ: usize, NK: usize, NL: usize) -> Rc<Node> {
     let mut knj_loop_ref = Node::new_single_loop("k", 0, NJ as i32);
     Node::extend_loop_body(&mut knj_loop_ref, &mut s_ref_tmp);
     Node::extend_loop_body(&mut knj_loop_ref, &mut s_ref_c);
-    Node::extend_loop_body(&mut knj_loop_ref, &mut s_ref_d);
+    Node::extend_loop_body(&mut knj_loop_ref, &mut s_ref_d); // TODO: s_ref_d is not right, should be ij
 
     let mut jnl_loop_ref = Node::new_single_loop("j", 0, NL as i32);
-    Node::extend_loop_body(&mut jnj_loop_ref, &mut s_ref_d);
-    Node::extend_loop_body(&mut jnj_loop_ref, &mut knj_loop_ref);
+    Node::extend_loop_body(&mut jnl_loop_ref, &mut s_ref_d);
+    Node::extend_loop_body(&mut jnl_loop_ref, &mut knj_loop_ref);
 
     let mut ini_loop_ref2 = Node::new_single_loop("i", 0, NI as i32);
     Node::extend_loop_body(&mut ini_loop_ref2, &mut jnl_loop_ref);
@@ -1331,8 +1333,8 @@ pub fn gemver(n: usize) -> Rc<Node> {
 
 #[cfg(test)]
 mod tests {
-
     use super::*;
+
     #[test]
     fn trmm_trace_test() {
         assert_eq!(trmm_trace(1024, 1024).node_count(), 8);
@@ -1341,6 +1343,7 @@ mod tests {
     #[test]
     fn test_mvt() {
         assert_eq!(mvt(1024).node_count(), 13);
+        mvt(1024).print_structure(0);
     }
 
     #[test]
@@ -1385,7 +1388,7 @@ mod tests {
 
     #[test]
     fn _2mm_test() {
-        assert_eq!(_2mm(1024, 1024, 1024, 1024).node_count(), 10);
+        assert_eq!(_2mm(1024, 1024, 1024, 1024).node_count(), 15);
     }
 
     #[test]
@@ -1396,7 +1399,7 @@ mod tests {
 
     #[test]
     fn test_cholesky() {
-        assert_eq!(cholesky(1024).node_count(), 17)
+        assert_eq!(cholesky(1024).node_count(), 17);
     }
 
     #[test]
@@ -1412,22 +1415,25 @@ mod tests {
 
     #[test]
     fn test_symm() {
-        assert_eq!(symm(1024, 1024).node_count(), 13)
+        assert_eq!(symm(1024, 1024).node_count(), 13);
+        // symm(1024, 1024).print_structure(0);
     }
 
     #[test]
     fn test_stencil() {
-        assert_eq!(stencil(1024).node_count(), 8)
+        assert_eq!(stencil(1024).node_count(), 8);
+        stencil(1024).print_structure(0);
     }
 
     #[test]
     fn test_seidel_2d() {
-        assert_eq!(seidel_2d(10, 1024).node_count(), 13)
+        assert_eq!(seidel_2d(10, 1024).node_count(), 13);
+        seidel_2d(10, 1024).print_structure(0);
     }
 
     #[test]
     fn test_ludcmp() {
-        assert_eq!(ludcmp(1024).node_count(), 28)
+        assert_eq!(ludcmp(1024).node_count(), 28);
     }
 
     #[test]
@@ -1452,6 +1458,7 @@ mod tests {
 
     #[test]
     fn test_gemver() {
+        gemver(1024).print_structure(0);
         assert_eq!(gemver(1024).node_count(), 25)
     }
 }
