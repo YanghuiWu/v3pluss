@@ -53,7 +53,7 @@ pub struct LoopStmt {
     // Now we assume step is iv = iv + 1
     pub step: Box<dyn Fn(i32) -> i32>,
     pub body: Vec<Rc<Node>>,
-    pub rank: usize,
+    pub rank: i32,
 }
 
 pub enum LoopBound {

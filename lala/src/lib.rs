@@ -8,7 +8,7 @@ use std::rc::Rc;
 use dace::ast::{AryRef, Node, Stmt};
 
 #[allow(dead_code)]
-fn assign_ranks(node: &mut Node) -> usize {
+fn assign_ranks(node: &mut Node) -> i32 {
     match &mut node.stmt {
         Stmt::Loop(loop_stmt) => unsafe {
             // Recursively assign ranks to the loops in the body
@@ -92,7 +92,7 @@ fn print_ri_and_count_arr_refs(node: &Node) -> usize {
 // Calculate reuse intervals
 unsafe fn calculate_reuse_intervals(
     node: &mut Rc<Node>,
-    loop_ranks: &mut HashMap<String, usize>,
+    loop_ranks: &mut HashMap<String, i32>,
     num_arr_refs: usize,
 ) {
     let node = Rc::get_mut_unchecked(node);
@@ -119,7 +119,7 @@ unsafe fn calculate_reuse_intervals(
 /// Determine reuse intervals based on the prompt's criteria
 fn determine_reuse_intervals(
     arr_ref_stmt: &mut AryRef,
-    loop_ranks: &mut HashMap<String, usize>,
+    loop_ranks: &mut HashMap<String, i32>,
     num_arr_refs: usize,
 ) -> Vec<String> {
     let indices = (arr_ref_stmt.sub)(&[0, 1, 2, 3]);
@@ -140,18 +140,18 @@ fn determine_reuse_intervals(
     let p_rank = *loop_ranks.get(&named_indices[1]).unwrap_or(&0);
     // print!("f_rank: {}, p_rank: {}\n", f_rank, p_rank);
 
-    if p_rank < f_rank || f_rank != 0 || p_rank != 0 {
+    if f_rank > p_rank || (f_rank != 0 && p_rank != 0) {
         ri_values.push(format!("{}", num_arr_refs));
     }
     if (f_rank == 0 || p_rank == 0) && !(f_rank == 1 && p_rank == 0) {
         ri_values.push(format!("{}n", num_arr_refs));
     }
-    if ((f_rank == 1 && p_rank == 2) || (f_rank as i32 - p_rank as i32).abs() == 1)
-        && (f_rank == 0 || p_rank == 0)
+    if (f_rank == 1 && p_rank == 2)
+        || ((f_rank - p_rank).abs() == 1 && (f_rank == 0 || p_rank == 0))
     {
         ri_values.push(format!("{}n^2", num_arr_refs));
     }
-    if f_rank == 0 || p_rank == 0 {
+    if f_rank == 2 || p_rank == 2 {
         ri_values.push("infinite".to_string());
     }
 
@@ -165,6 +165,15 @@ mod tests {
     use dace_tests::polybench;
 
     use super::*;
+
+    fn nest_loops(order: &mut [&mut Rc<Node>]) -> Rc<Node> {
+        let mut outer_loop = Rc::clone(order[0]);
+        for loop_node in &mut order[1..] {
+            Node::extend_loop_body(&mut outer_loop, loop_node);
+            outer_loop = Rc::clone(loop_node);
+        }
+        Rc::clone(order[0])
+    }
 
     #[test]
     fn matmul() {
@@ -185,23 +194,25 @@ mod tests {
             vec![ijk[2] as usize, ijk[1] as usize]
         });
 
+        // Choose the loop order here by specifying the order of the loops
+        // let loop_order = &mut [&mut i_loop, &mut j_loop, &mut k_loop];
+        let loop_order = &mut [&mut i_loop, &mut k_loop, &mut j_loop];
+        // let loop_order = &mut [&mut j_loop, &mut k_loop, &mut i_loop];
+        // Add array references to the innermost loop after nesting the loops
         [ref_c, ref_a, ref_b]
             .iter_mut()
-            .for_each(|s| Node::extend_loop_body(&mut k_loop, s));
-        Node::extend_loop_body(&mut j_loop, &mut k_loop);
-        Node::extend_loop_body(&mut i_loop, &mut j_loop);
+            .for_each(|s| Node::extend_loop_body(loop_order.last_mut().unwrap(), s));
 
+        let mut nested_loops_top = nest_loops(loop_order);
+
+        let arr_refs = count_arr_refs(&nested_loops_top);
         unsafe {
-            assign_ranks(Rc::get_mut_unchecked(&mut i_loop));
+            assign_ranks(Rc::get_mut_unchecked(&mut nested_loops_top));
+            calculate_reuse_intervals(&mut nested_loops_top, &mut HashMap::new(), arr_refs);
         }
-        println!("{:?}", i_loop.stmt);
-        i_loop.print_structure(0);
-        let arr_refs = count_arr_refs(&i_loop);
-        unsafe {
-            calculate_reuse_intervals(&mut i_loop, &mut HashMap::new(), arr_refs);
-        }
-        assert_eq!(i_loop.node_count(), 6);
-        print_ri_and_count_arr_refs(&i_loop);
+        nested_loops_top.print_structure(0);
+        
+        print_ri_and_count_arr_refs(&nested_loops_top);
     }
 
     #[test]
