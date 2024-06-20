@@ -6,3 +6,4 @@ edition = "2021"
 [dependencies]
 dace = { path = "../dace" }
 dace_tests = { path = "../dace_tests" }
+static_rd = { path = "../static_rd" }

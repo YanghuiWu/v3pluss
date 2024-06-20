@@ -122,6 +122,8 @@ fn determine_reuse_intervals(
     loop_ranks: &mut HashMap<String, i32>,
     num_arr_refs: usize,
 ) -> Vec<String> {
+    let max_rank = *loop_ranks.values().max().unwrap_or(&0);
+    println!("{} is under {} loops", arr_ref_stmt.name, max_rank + 1);
     let indices = (arr_ref_stmt.sub)(&[0, 1, 2, 3]);
     let named_indices: Vec<String> = indices
         .iter()
@@ -136,23 +138,33 @@ fn determine_reuse_intervals(
         .collect();
     let mut ri_values = vec![];
     // search for the ranks of the indices
-    let f_rank = *loop_ranks.get(&named_indices[0]).unwrap_or(&0);
-    let p_rank = *loop_ranks.get(&named_indices[1]).unwrap_or(&0);
+    let mut f_rank = *loop_ranks.get(&named_indices[0]).unwrap_or(&0);
+    let p_rank;
+    if named_indices.len() > 1 {
+        p_rank = *loop_ranks.get(&named_indices[1]).unwrap_or(&0);
+    } else {
+        p_rank = f_rank;
+        f_rank = i32::MAX;
+    }
     // print!("f_rank: {}, p_rank: {}\n", f_rank, p_rank);
 
     if f_rank > p_rank || (f_rank != 0 && p_rank != 0) {
         ri_values.push(format!("{}", num_arr_refs));
     }
-    if (f_rank == 0 || p_rank == 0) && !(f_rank == 1 && p_rank == 0) {
+
+    if (f_rank == 0 || p_rank == 0) && !(f_rank == 1 && p_rank == 0) && max_rank > 0 {
         ri_values.push(format!("{}n", num_arr_refs));
     }
-    if (f_rank == 1 && p_rank == 2)
-        || ((f_rank - p_rank).abs() == 1 && (f_rank == 0 || p_rank == 0))
+
+    if ((f_rank == 1 && p_rank == 2)
+        || ((f_rank - p_rank).abs() == 1 && (f_rank == 0 || p_rank == 0)))
+        && max_rank > 1
     {
         ri_values.push(format!("{}n^2", num_arr_refs));
     }
-    if f_rank == 2 || p_rank == 2 {
-        ri_values.push("infinite".to_string());
+
+    if f_rank == max_rank || p_rank == max_rank {
+        ri_values.push("inf".to_string()); // Meaning Infinite
     }
 
     arr_ref_stmt.ri = ri_values.clone();
@@ -161,8 +173,11 @@ fn determine_reuse_intervals(
 
 #[cfg(test)]
 mod tests {
+    use dace::arybase::set_arybase;
     use dace::ast::Node;
     use dace_tests::polybench;
+    use static_rd::trace::trace;
+    use static_rd::LRUStack;
 
     use super::*;
 
@@ -177,7 +192,7 @@ mod tests {
 
     #[test]
     fn matmul() {
-        let n: usize = 100; // array dim
+        let n: usize = 10; // array dim
         let ubound = n as i32; // loop bound
         let mut i_loop = Node::new_single_loop("i", 0, ubound);
         let mut j_loop = Node::new_single_loop("j", 0, ubound);
@@ -196,8 +211,8 @@ mod tests {
 
         // Choose the loop order here by specifying the order of the loops
         // let loop_order = &mut [&mut i_loop, &mut j_loop, &mut k_loop];
-        let loop_order = &mut [&mut i_loop, &mut k_loop, &mut j_loop];
-        // let loop_order = &mut [&mut j_loop, &mut k_loop, &mut i_loop];
+        // let loop_order = &mut [&mut i_loop, &mut k_loop, &mut j_loop];
+        let loop_order = &mut [&mut j_loop, &mut k_loop, &mut i_loop];
         // Add array references to the innermost loop after nesting the loops
         [ref_c, ref_a, ref_b]
             .iter_mut()
@@ -206,21 +221,29 @@ mod tests {
         let mut nested_loops_top = nest_loops(loop_order);
 
         let arr_refs = count_arr_refs(&nested_loops_top);
+
+        let (tbl, _size) = set_arybase(&mut nested_loops_top);
+        println!("{:?}", tbl);
         unsafe {
             assign_ranks(Rc::get_mut_unchecked(&mut nested_loops_top));
             calculate_reuse_intervals(&mut nested_loops_top, &mut HashMap::new(), arr_refs);
         }
         nested_loops_top.print_structure(0);
-        
+        let result = trace(&mut nested_loops_top, LRUStack::new());
+        println!("{}", result.0);
         print_ri_and_count_arr_refs(&nested_loops_top);
     }
 
     #[test]
     fn test_poly() {
-        // let mut bench = polybench::mvt(1024); // TODO: fix the issue with the mvt with single array
+        // let mut bench = polybench::mvt(1024); // fixed the issue with the mvt with single array
         let mut bench = polybench::stencil(1024);
-        // let mut bench = polybench::seidel_2d(10, 1024); // TODO: fix the issue with self define loop indices
-        // let mut bench = polybench::gemver(1024); // TODO: fix the issue with the mvt with single array
+        // let mut bench = polybench::seidel_2d(10, 10); // fixed the issue with self define loop indices
+        // let mut bench = polybench::gemver(1024); // fixed the issue with the mvt with single array
+        // let mut bench = polybench::syrk(256, 256);
+
+        // let mut bench = polybench::trmm_trace(1024, 1024);
+        let mut bench = polybench::symm(1024, 1024);
         unsafe {
             assign_ranks(Rc::get_mut_unchecked(&mut bench));
         }
@@ -230,5 +253,8 @@ mod tests {
             calculate_reuse_intervals(&mut bench, &mut HashMap::new(), arr_refs);
         }
         print_ri_and_count_arr_refs(&bench);
+
+        // let result = trace(&mut bench, LRUStack::new());
+        // println!("{}", result.0);
     }
 }
