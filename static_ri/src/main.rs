@@ -12,9 +12,7 @@ use tracing_subscriber::EnvFilter;
 
 use dace::ast::{LoopBound, LoopStmt, Node, Stmt};
 use dace_tests::polybench;
-
-mod ri_utils;
-mod sampling;
+use static_ri::tracing_ri;
 
 fn main() {
     tracing_subscriber::fmt()
@@ -26,7 +24,7 @@ fn main() {
     let start = Instant::now();
     // let hist = static_rd::trace::trace(&mut trace);
     // let hist = static_rd::trace::tracing_ri(&mut trace);
-    let _hist = sampling::tracing_ri(&mut trace);
+    let _hist = tracing_ri(&mut trace);
     let mut ans = HashMap::new();
     sample_collect(&trace, &mut wrapping_loop, &mut ans, &mut ref_counter);
     let _samples: HashMap<usize, std::collections::BTreeSet<Vec<usize>>> =
