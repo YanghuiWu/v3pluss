@@ -1,10 +1,9 @@
-use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt;
 
-//use csv::WriterBuilder;
+use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone, Default)]
 pub struct Hist {
     hist: HashMap<Option<usize>, usize>,
     // attrs: HashMap<String,String>
@@ -12,9 +11,7 @@ pub struct Hist {
 
 impl Hist {
     pub fn new() -> Hist {
-        Hist {
-            hist: HashMap::new(),
-        }
+        Self::default()
     }
 
     pub fn add_dist(&mut self, d: Option<usize>) {
@@ -25,20 +22,9 @@ impl Hist {
     }
 
     pub fn to_vec(&self) -> Vec<(Option<usize>, usize)> {
-        let mut h2 = self.hist.clone();
-        let inf_rds = h2.remove(&None);
-        let mut hvec: Vec<(Option<usize>, usize)> = h2.iter().map(|(x, y)| (*x, *y)).collect();
+        let mut hvec: Vec<_> = self.hist.iter().map(|(&k, &v)| (k, v)).collect();
         hvec.sort_by(|a, b| a.0.cmp(&b.0));
-        if let Some(cnt) = inf_rds {
-            hvec.push((None, cnt));
-        }
         hvec
-    }
-}
-
-impl Default for Hist {
-    fn default() -> Self {
-        Self::new()
     }
 }
 
@@ -47,16 +33,21 @@ impl fmt::Display for Hist {
         let mut hvec = self.to_vec();
         let tot = hvec.iter().fold(0, |acc, x| acc + x.1);
         if !hvec.is_empty() {
-            writeln!(f, "Reuse distance histogram:\n\t{} distance value(s), min {:?}, max {:?}\n\t{} accesses",
-                     hvec.len(), hvec[0].0, hvec[hvec.len() - 1].0, tot)?;
-            if hvec[hvec.len() - 1].0.is_none() {
-                writeln!(f, "\t({} first accesses)", hvec[hvec.len() - 1].1)?;
-                hvec.pop();
+            let min = hvec[0].0;
+            let max = hvec.last().unwrap().0;
+            writeln!(f, "Reuse distance histogram:\n\t{} distance value(s), min {:?}, max {:?}\n\t{} accesses", hvec.len(), min, max, tot)?;
+            if let Some((None, count)) = hvec.first() {
+                writeln!(f, "\t({} first accesses)", count)?;
+                hvec.remove(0);
             }
+            writeln!(f, "value, count")?;
+            hvec.into_iter().fold(Ok(()), |_, (d, cnt)| {
+                writeln!(f, "{}, {}", d.unwrap_or_default(), cnt)
+            })
+        } else {
+            writeln!(f, "Reuse distance histogram is empty")?;
+            Ok(())
         }
-        writeln!(f, "value, count")?;
-        hvec.into_iter()
-            .fold(Ok(()), |_, (d, cnt)| writeln!(f, "{}, {}", d.unwrap(), cnt))
     }
 }
 
@@ -65,7 +56,24 @@ mod tests {
     use super::*;
 
     #[test]
-    fn it_works() {
+    fn hist_empty() {
+        let h = Hist::new(); // Create an empty Hist
+
+        // Check that to_vec returns an empty vector
+        let v = h.to_vec();
+        assert!(v.is_empty(), "Expected an empty vector, got {:?}", v);
+
+        // Check that the Display implementation doesn't panic and returns an expected string
+        let display = format!("{}", h);
+        assert_eq!(
+            display, "Reuse distance histogram is empty\n",
+            "Unexpected output from Display implementation: {}",
+            display
+        );
+    }
+
+    #[test]
+    fn hist_basic_operations() {
         let mut h = Hist::new();
         h.add_dist(None);
         h.add_dist(Some(1));
@@ -73,14 +81,15 @@ mod tests {
         h.add_dist(Some(100));
 
         let v = h.to_vec();
-        assert_eq!(v[0], (Some(1), 2));
-        assert_eq!(v[1], (Some(100), 1));
-        assert_eq!(v[2], (None, 1));
+        println!("{:?}", v);
+        assert_eq!(v[1], (Some(1), 2));
+        assert_eq!(v[2], (Some(100), 1));
+        assert_eq!(v[0], (None, 1));
 
         assert_eq!(
             format!("{}", h),
             "Reuse distance histogram:
-	3 distance value(s), min Some(1), max None
+	3 distance value(s), min None, max Some(100)
 	4 accesses
 	(1 first accesses)
 value, count

@@ -150,8 +150,8 @@ mod test {
 
         let result = trace(&mut aloop, LRUStack::new());
         let hist = result.0;
-        assert_eq!(hist.to_vec()[0], (Some(1), 9));
-        assert_eq!(hist.to_vec()[1], (None, 1));
+        assert_eq!(hist.to_vec()[1], (Some(1), 9));
+        assert_eq!(hist.to_vec()[0], (None, 1));
         println!("{}", hist);
     }
 }
