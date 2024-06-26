@@ -842,25 +842,25 @@ pub fn seidel_2d(m: usize, n: usize) -> Rc<Node> {
     });
 
     // creating loops
-    let mut j_loop_ref = Node::new_single_loop("j", 1, ubound - 2);
-    Node::extend_loop_body(&mut j_loop_ref, &mut s_ref_a1);
-    Node::extend_loop_body(&mut j_loop_ref, &mut s_ref_a2);
-    Node::extend_loop_body(&mut j_loop_ref, &mut s_ref_a3);
-    Node::extend_loop_body(&mut j_loop_ref, &mut s_ref_a4);
-    Node::extend_loop_body(&mut j_loop_ref, &mut s_ref_a5);
-    Node::extend_loop_body(&mut j_loop_ref, &mut s_ref_a6);
-    Node::extend_loop_body(&mut j_loop_ref, &mut s_ref_a7);
-    Node::extend_loop_body(&mut j_loop_ref, &mut s_ref_a8);
-    Node::extend_loop_body(&mut j_loop_ref, &mut s_ref_a9);
-    Node::extend_loop_body(&mut j_loop_ref, &mut s_ref_a0);
+    let mut k_loop_ref = Node::new_single_loop("k", 1, ubound - 2);
+    Node::extend_loop_body(&mut k_loop_ref, &mut s_ref_a1);
+    Node::extend_loop_body(&mut k_loop_ref, &mut s_ref_a2);
+    Node::extend_loop_body(&mut k_loop_ref, &mut s_ref_a3);
+    Node::extend_loop_body(&mut k_loop_ref, &mut s_ref_a4);
+    Node::extend_loop_body(&mut k_loop_ref, &mut s_ref_a5);
+    Node::extend_loop_body(&mut k_loop_ref, &mut s_ref_a6);
+    Node::extend_loop_body(&mut k_loop_ref, &mut s_ref_a7);
+    Node::extend_loop_body(&mut k_loop_ref, &mut s_ref_a8);
+    Node::extend_loop_body(&mut k_loop_ref, &mut s_ref_a9);
+    Node::extend_loop_body(&mut k_loop_ref, &mut s_ref_a0);
 
-    let mut i_loop_ref = Node::new_single_loop("i", 1, ubound - 2);
+    let mut j_loop_ref = Node::new_single_loop("j", 1, ubound - 2);
+    Node::extend_loop_body(&mut j_loop_ref, &mut k_loop_ref);
+
+    let mut i_loop_ref = Node::new_single_loop("i", 0, tsteps - 1);
     Node::extend_loop_body(&mut i_loop_ref, &mut j_loop_ref);
 
-    let mut t_loop_ref = Node::new_single_loop("t", 0, tsteps - 1);
-    Node::extend_loop_body(&mut t_loop_ref, &mut i_loop_ref);
-
-    t_loop_ref
+    i_loop_ref
 }
 
 pub fn ludcmp(n: usize) -> Rc<Node> {
@@ -1338,6 +1338,7 @@ mod tests {
     #[test]
     fn trmm_trace_test() {
         assert_eq!(trmm_trace(1024, 1024).node_count(), 8);
+        trmm_trace(1024, 1024).print_structure(0);
     }
 
     #[test]
@@ -1349,16 +1350,19 @@ mod tests {
     #[test]
     fn test_trisolv() {
         assert_eq!(trisolv(1024).node_count(), 11);
+        trisolv(1024).print_structure(0);
     }
 
     #[test]
     fn test_syrk() {
         assert_eq!(syrk(256, 256).node_count(), 12);
+        syrk(256, 256).print_structure(0);
     }
 
     #[test]
     fn test_syr2d() {
         assert_eq!(syr2d(1024, 1024).node_count(), 12);
+        syr2d(1024, 1024).print_structure(0);
     }
 
     #[test]
@@ -1389,34 +1393,39 @@ mod tests {
     #[test]
     fn _2mm_test() {
         assert_eq!(_2mm(1024, 1024, 1024, 1024).node_count(), 15);
+        _2mm(1024, 1024, 1024, 1024).print_structure(0);
     }
 
     #[test]
     fn lu_test() {
         let mm = lu(100);
         assert_eq!(mm.node_count(), 16);
+        mm.print_structure(0);
     }
 
     #[test]
     fn test_cholesky() {
         assert_eq!(cholesky(1024).node_count(), 17);
+        cholesky(1024).print_structure(0);
     }
 
     #[test]
     fn gram_schmidt_test() {
         assert_eq!(gramschmidt_trace(1024, 1024).node_count(), 21);
+        gramschmidt_trace(1024, 1024).print_structure(0);
     }
 
     #[test]
     fn heat_3d_test() {
         let mm = heat_3d(5, 100);
         assert_eq!(mm.node_count(), 29);
+        // mm.print_structure(0);
     }
 
     #[test]
     fn test_symm() {
         assert_eq!(symm(1024, 1024).node_count(), 13);
-        // symm(1024, 1024).print_structure(0);
+        symm(1024, 1024).print_structure(0);
     }
 
     #[test]
