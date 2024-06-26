@@ -4,8 +4,17 @@ use std::rc::Rc;
 use crate::ast::{Node, Stmt};
 use crate::iter::Walk;
 
-//Note: may need to change the whole program so that it does not use iterators but use other ways so that we can mute the node in rc.
-pub fn set_arybase(aloop: &mut Rc<Node>) -> (HashMap<String, usize>, usize) {
+///
+/// This function assigns a unique base address to each array in a given loop.
+/// It takes a mutable reference to a `Node` object, which represents a loop, and returns a tuple containing a `HashMap` and a `usize`.
+/// The `HashMap` stores the base address for each array, and the `usize` is the current base address.
+/// 1. It initializes a `HashMap` and a counter (`cur_base`) to 0 and `Walk` object from the loop.
+/// 2. It filters the nodes in the loop to only include those that are array references (`Stmt::Ref(_)`).
+/// 4. For each filtered node:
+///    - If the array name of the array is not already in the `HashMap`, it inserts the current base address into the `HashMap` for that array name, calculates the size of the array by multiplying its dimensions, and increments the current base address by the size of the array.
+///    - It retrieves the base address for the array from the `HashMap` and sets it in the node.
+///
+pub fn set_arybase(aloop: &Rc<Node>) -> (HashMap<String, usize>, usize) {
     let init = (HashMap::<String, usize>::new(), 0);
     Walk::new(aloop)
         .filter(|node| matches!(&node.stmt, Stmt::Ref(_)))
