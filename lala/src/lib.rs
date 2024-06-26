@@ -8,14 +8,14 @@ use std::rc::Rc;
 use dace::ast::{AryRef, Node, Stmt};
 
 #[allow(dead_code)]
-fn assign_ranks(node: &mut Node) -> i32 {
+fn assign_ranks_reverse(node: &mut Node) -> i32 {
     match &mut node.stmt {
         Stmt::Loop(loop_stmt) => unsafe {
             // Recursively assign ranks to the loops in the body
             let max_inner_rank = loop_stmt
                 .body
                 .iter_mut()
-                .map(|child| assign_ranks(Rc::get_mut_unchecked(child)))
+                .map(|child| assign_ranks_reverse(Rc::get_mut_unchecked(child)))
                 .max()
                 .unwrap_or(0);
 
@@ -28,7 +28,7 @@ fn assign_ranks(node: &mut Node) -> i32 {
             // Recursively assign ranks to the loops in the body
             let max_inner_rank = block_stmt
                 .iter_mut()
-                .map(|child| assign_ranks(Rc::get_mut_unchecked(child)))
+                .map(|child| assign_ranks_reverse(Rc::get_mut_unchecked(child)))
                 .max()
                 .unwrap_or(0);
 
@@ -38,6 +38,37 @@ fn assign_ranks(node: &mut Node) -> i32 {
             // println!("Not loop {:?}", node.stmt);
             0
         }
+    }
+}
+
+#[allow(dead_code)]
+fn assign_ranks(node: &mut Node, current_rank: i32) -> i32 {
+    match &mut node.stmt {
+        Stmt::Loop(loop_stmt) => unsafe {
+            // Assign the current rank to this loop
+            loop_stmt.rank = current_rank;
+
+            // Recursively assign ranks to the loops in the body
+            let max_inner_rank = loop_stmt
+                .body
+                .iter_mut()
+                .map(|child| assign_ranks(Rc::get_mut_unchecked(child), current_rank + 1))
+                .max()
+                .unwrap_or(current_rank);
+
+            max_inner_rank
+        },
+        Stmt::Block(block_stmt) => unsafe {
+            // Recursively assign ranks to the loops in the body
+            let max_inner_rank = block_stmt
+                .iter_mut()
+                .map(|child| assign_ranks(Rc::get_mut_unchecked(child), current_rank))
+                .max()
+                .unwrap_or(current_rank);
+
+            max_inner_rank
+        },
+        _ => current_rank,
     }
 }
 
@@ -225,7 +256,7 @@ mod tests {
         let (tbl, _size) = set_arybase(&mut nested_loops_top);
         println!("{:?}", tbl);
         unsafe {
-            assign_ranks(Rc::get_mut_unchecked(&mut nested_loops_top));
+            assign_ranks(Rc::get_mut_unchecked(&mut nested_loops_top), 0);
             calculate_reuse_intervals(&mut nested_loops_top, &mut HashMap::new(), arr_refs);
         }
         nested_loops_top.print_structure(0);
@@ -237,7 +268,7 @@ mod tests {
     #[test]
     fn test_poly() {
         // let mut bench = polybench::mvt(1024); // fixed the issue with the mvt with single array
-        let mut bench = polybench::stencil(1024);
+        let _bench = polybench::stencil(1024);
         // let mut bench = polybench::seidel_2d(10, 10); // fixed the issue with self define loop indices
         // let mut bench = polybench::gemver(1024); // fixed the issue with the mvt with single array
         // let mut bench = polybench::syrk(256, 256);
@@ -245,7 +276,7 @@ mod tests {
         // let mut bench = polybench::trmm_trace(1024, 1024);
         let mut bench = polybench::symm(1024, 1024);
         unsafe {
-            assign_ranks(Rc::get_mut_unchecked(&mut bench));
+            assign_ranks(Rc::get_mut_unchecked(&mut bench), 0);
         }
         bench.print_structure(0);
         let arr_refs = count_arr_refs(&bench);
