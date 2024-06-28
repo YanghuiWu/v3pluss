@@ -301,6 +301,24 @@ impl Node {
         stmt_node.parent = Rc::downgrade(lup);
     }
 
+    //Giordan's method for nest_loops that Woody (had already) made below.
+    pub fn loop_body(stmts: &[&mut Rc<Node>]) {
+        stmts.windows(2).rev().for_each(|window| {
+            let prev = &mut Rc::clone(window[0]);
+            let next = &mut Rc::clone(window[1]);
+            Self::extend_loop_body(prev, next);
+        });
+    }
+
+    pub fn nest_loops(order: &mut [&mut Rc<Node>]) -> Rc<Node> {
+        let mut outer_loop = Rc::clone(order[0]);
+        for loop_node in &mut order[1..] {
+            Node::extend_loop_body(&mut outer_loop, loop_node);
+            outer_loop = Rc::clone(loop_node);
+        }
+        Rc::clone(order[0])
+    }
+
     pub fn loop_only<U, F>(&self, f: F) -> Option<U>
     where
         F: FnOnce(&LoopStmt) -> U,
@@ -413,6 +431,36 @@ mod tests {
 
     #[test]
     fn matmul() {
+        let n: usize = 100; // array dim
+        let ubound = n as i32; // loop bound
+                               // creating C[i,j] += A[i,k] * B[k,j]
+        let ref_c = Node::new_ref("C", vec![n, n], |ijk| {
+            vec![ijk[0] as usize, ijk[1] as usize]
+        });
+        let ref_a = Node::new_ref("A", vec![n, n], |ijk| {
+            vec![ijk[0] as usize, ijk[2] as usize]
+        });
+        let ref_b = Node::new_ref("B", vec![n, n], |ijk| {
+            vec![ijk[2] as usize, ijk[1] as usize]
+        });
+        // creating loop i = 0, n
+        let mut i_loop = Node::new_single_loop("i", 0, ubound);
+        // creating loop j = 0, n
+        let mut j_loop = Node::new_single_loop("j", 0, ubound);
+        // creating loop k = 0, n { s_ref }
+        let mut k_loop = Node::new_single_loop("k", 0, ubound);
+        [ref_c, ref_a, ref_b]
+            .iter_mut()
+            .for_each(|s| Node::extend_loop_body(&mut k_loop, s));
+
+        Node::loop_body(&[&mut j_loop, &mut i_loop, &mut k_loop]);
+
+        assert_eq!(j_loop.node_count(), 6);
+    }
+
+    #[test]
+    fn matmul_2() {
+        //The original method
         let n: usize = 100; // array dim
         let ubound = n as i32; // loop bound
                                // creating C[i,j] += A[i,k] * B[k,j]

@@ -212,15 +212,6 @@ mod tests {
 
     use super::*;
 
-    fn nest_loops(order: &mut [&mut Rc<Node>]) -> Rc<Node> {
-        let mut outer_loop = Rc::clone(order[0]);
-        for loop_node in &mut order[1..] {
-            Node::extend_loop_body(&mut outer_loop, loop_node);
-            outer_loop = Rc::clone(loop_node);
-        }
-        Rc::clone(order[0])
-    }
-
     #[test]
     fn matmul() {
         let n: usize = 10; // array dim
@@ -249,7 +240,7 @@ mod tests {
             .iter_mut()
             .for_each(|s| Node::extend_loop_body(loop_order.last_mut().unwrap(), s));
 
-        let mut nested_loops_top = nest_loops(loop_order);
+        let mut nested_loops_top = Node::nest_loops(loop_order);
 
         let arr_refs = count_arr_refs(&nested_loops_top);
 
