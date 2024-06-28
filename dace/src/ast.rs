@@ -303,13 +303,11 @@ impl Node {
 
     //Giordan's method for nest_loops that Woody (had already) made below.
     pub fn loop_body(stmts: &[&mut Rc<Node>]) {
-        stmts.windows(2)
-            .rev()
-            .for_each(|window| {
-                let prev = &mut Rc::clone(window[0]);
-                let next =  &mut Rc::clone(window[1]);
-                Self::extend_loop_body(prev, next);
-            });
+        stmts.windows(2).rev().for_each(|window| {
+            let prev = &mut Rc::clone(window[0]);
+            let next = &mut Rc::clone(window[1]);
+            Self::extend_loop_body(prev, next);
+        });
     }
 
     pub fn nest_loops(order: &mut [&mut Rc<Node>]) -> Rc<Node> {
@@ -454,18 +452,15 @@ mod tests {
         [ref_c, ref_a, ref_b]
             .iter_mut()
             .for_each(|s| Node::extend_loop_body(&mut k_loop, s));
-        
-        Node::loop_body(&[
-            &mut j_loop,
-            &mut i_loop,
-            &mut k_loop,
-        ]);
+
+        Node::loop_body(&[&mut j_loop, &mut i_loop, &mut k_loop]);
 
         assert_eq!(j_loop.node_count(), 6);
     }
 
     #[test]
-    fn matmul_2() { //The original method
+    fn matmul_2() {
+        //The original method
         let n: usize = 100; // array dim
         let ubound = n as i32; // loop bound
                                // creating C[i,j] += A[i,k] * B[k,j]
