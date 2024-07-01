@@ -7,5 +7,5 @@ edition = "2021"
 
 [dependencies]
 # csv = "1.2.1"
-serde = {version = "1.0.164", features = ["derive"]}
-tracing-subscriber = {version = "0.3.17", features = ["env-filter"]}
+serde = { version = "1.0.203", features = ["derive"] }
+tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }

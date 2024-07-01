@@ -2,48 +2,8 @@
 mod tests {
     use dace;
     use dace::arybase::set_arybase;
-    use dace::ast::{Node, Stmt};
-    use static_ri::{access3addr, tracing_ri};
-
-    #[test]
-    fn test_access3addr() {
-        let n: usize = 10; // array dim
-        let ubound = n as i32; // loop bound
-        let mut nested_loops_top = dace::nested_loops(&vec!["i", "j", "k"], 0, ubound);
-
-        let ref_c = dace::a_ref("C", vec![n, n], vec!["i", "j"]);
-        let ref_a = dace::a_ref("A", vec![n, n], vec!["i", "k"]);
-        let ref_b = dace::a_ref("B", vec![n, n], vec!["k", "j"]);
-
-        for refs in &mut [ref_c.clone(), ref_a.clone(), ref_b.clone()] {
-            dace::insert_at(refs, &mut nested_loops_top, "k");
-        }
-
-        set_arybase(&nested_loops_top);
-
-        println!("{:?}", ref_c.stmt);
-        println!("{:?}", ref_a.stmt);
-        println!("{:?}", ref_b.stmt);
-        let ivec = vec![1, 2, 3]; // Replace with the index vector for your test
-        let data_size = 8; // Replace with the data size for your test
-        let cache_line_size = 8; // Replace with the cache line size for your test
-
-        for node in [ref_c, ref_a, ref_b].iter() {
-            if let Stmt::Ref(ary_ref) = &node.stmt {
-                let result = access3addr(ary_ref, &ivec, data_size, cache_line_size);
-                println!("Reside in Cache Line: #{}\n", result);
-            } else {
-                panic!("Expected Stmt::Ref");
-            }
-        }
-        //
-        // let a = get_rank_indices(ref_c.clone());
-        // println!("a: {:?}", a);
-
-        let hist = tracing_ri(&mut nested_loops_top.clone(), 8, 8);
-
-        println!("{}", hist);
-    }
+    use dace::ast::Node;
+    use static_ri::tracing_ri;
 
     #[test]
     fn test_tracing_ri2() {

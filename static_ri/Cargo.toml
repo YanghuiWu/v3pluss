@@ -9,8 +9,8 @@ hist = { path = "../hist" }
 dace = { path = "../dace" }
 list_serializable = { path = "../list_serializable" }
 dace_tests = { path = "../dace_tests" }
-tracing = "0.1.37"
+tracing = "0.1.40"
 fxhash = "0.2.1"
-tracing-subscriber = "0.3.17"
+tracing-subscriber = "0.3.18"
 rand = "0.8.5"
 

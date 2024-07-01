@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Clone, Default)]
 pub struct Hist {
-    hist: HashMap<Option<usize>, usize>,
+    pub hist: HashMap<Option<usize>, usize>,
     // attrs: HashMap<String,String>
 }
 

@@ -160,3 +160,78 @@ pub fn tracing_ri(code: &mut Rc<Node>, ds: usize, cls: usize) -> Hist {
     let mut context = TracingContext::new(code, ds, cls);
     context.trace_ri().clone()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_access3addr_and_tracing() {
+        let n: usize = 10; // array dim
+        let ubound = n as i32; // loop bound
+        let mut nested_loops_top = dace::nested_loops(&vec!["i", "j", "k"], 0, ubound);
+
+        let ref_c = dace::a_ref("C", vec![n, n], vec!["i", "j"]);
+        let ref_a = dace::a_ref("A", vec![n, n], vec!["i", "k"]);
+        let ref_b = dace::a_ref("B", vec![n, n], vec!["k", "j"]);
+
+        for refs in &mut [ref_c.clone(), ref_a.clone(), ref_b.clone()] {
+            dace::insert_at(refs, &mut nested_loops_top, "k");
+        }
+
+        set_arybase(&nested_loops_top);
+
+        println!("{:?}", ref_c.stmt);
+        println!("{:?}", ref_a.stmt);
+        println!("{:?}", ref_b.stmt);
+
+        let ivec = vec![1, 2, 3]; // Replace with the index vector for your test
+
+        let data_size = 8; // Replace with the data size for your test
+        let cache_line_size = 8; // Replace with the cache line size for your test
+
+        let refs = [ref_c, ref_a, ref_b];
+
+        for (index, node) in refs.iter().enumerate() {
+            if let Stmt::Ref(ary_ref) = &node.stmt {
+                let result = access3addr(ary_ref, &ivec, data_size, cache_line_size);
+                print!(
+                    "{}{:?}={:?}",
+                    ary_ref.name,
+                    ary_ref.indices,
+                    (ary_ref.sub)(&*ivec)
+                );
+                println!(" reside in Cache Line: #{}", result);
+
+                match index {
+                    0 => assert_eq!(result, 12),  // Assertion for ref_c
+                    1 => assert_eq!(result, 113), // Assertion for ref_a
+                    2 => assert_eq!(result, 232), // Assertion for ref_b
+                    _ => (),
+                }
+            }
+        }
+
+        let hist = tracing_ri(&mut nested_loops_top.clone(), 8, 8);
+        assert_eq!(hist.hist.get(&Some(3)), Some(&900));
+        assert_eq!(hist.hist.get(&Some(30)), Some(&900));
+        assert_eq!(hist.hist.get(&Some(300)), Some(&900));
+        assert_eq!(hist.hist.get(&None), Some(&300));
+
+        println!("\n{}", hist);
+
+        let hist2 = tracing_ri(&mut nested_loops_top.clone(), 8, 40);
+        println!("{}", hist2);
+        assert_eq!(hist2.hist.get(&Some(3)), Some(&1780));
+        assert_eq!(hist2.hist.get(&Some(18)), Some(&180));
+        assert_eq!(hist2.hist.get(&Some(30)), Some(&800));
+        assert_eq!(hist2.hist.get(&Some(180)), Some(&180));
+        assert_eq!(hist2.hist.get(&None), Some(&60));
+
+        let hist3 = tracing_ri(&mut nested_loops_top.clone(), 8, 80);
+        println!("{}", hist3);
+        assert_eq!(hist3.hist.get(&Some(3)), Some(&1980));
+        assert_eq!(hist3.hist.get(&Some(30)), Some(&990));
+        assert_eq!(hist3.hist.get(&None), Some(&30));
+    }
+}
