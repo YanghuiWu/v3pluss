@@ -39,10 +39,7 @@ pub fn create_loops(loop_names: &[&str], lb: i32, ub: i32) -> Vec<Rc<Node>> {
         .collect()
 }
 
-fn generate_sub(
-    indices: Vec<String>,
-    loops: Vec<String>,
-) -> Box<dyn for<'a> Fn(&'a [i32]) -> Vec<usize>> {
+fn generate_sub(indices: Vec<String>, loops: Vec<String>) -> Box<ast::DynFunc> {
     Box::new(move |ivec: &[i32]| {
         // println!("indices: {:?}", indices);
         // println!("loops: {:?}", loops);
@@ -84,24 +81,29 @@ pub fn a_ref(nm: &str, dim: Vec<usize>, ind: Vec<&str>) -> Rc<Node> {
     Node::new_node(ast::Stmt::Ref(ref_stmt))
 }
 
-pub fn insert_at(node: &mut Rc<Node>, mut head: &mut Rc<Node>, iv: &str) {
-    let stmt = unsafe { Rc::get_mut_unchecked(&mut head) };
+pub fn insert_at(node: &mut Rc<Node>, head: &mut Rc<Node>, iv: &str) -> bool {
+    let stmt = unsafe { Rc::get_mut_unchecked(head) };
     match &mut stmt.stmt {
         ast::Stmt::Loop(loop_stmt) => {
             if loop_stmt.iv == iv {
                 insert_node(head, node);
+                true
             } else {
                 for child in &mut loop_stmt.body {
-                    insert_at(node, child, iv);
-                    return;
+                    if insert_at(node, child, iv) {
+                        return true;
+                    }
                 }
+                false
             }
         }
         ast::Stmt::Block(children) => {
             for child in children.iter_mut() {
-                insert_at(node, child, iv);
-                return;
+                if insert_at(node, child, iv) {
+                    return true;
+                }
             }
+            false
         }
         _ => {
             panic!("Don't support branching yet!");

@@ -158,8 +158,7 @@ fn determine_reuse_intervals(
     let indices = (arr_ref_stmt.sub)(&[0, 1, 2, 3]);
     let named_indices: Vec<String> = indices
         .iter()
-        .enumerate()
-        .map(|(_idx, val)| match val {
+        .map(|val| match val {
             0 => "i".to_string(),
             1 => "j".to_string(),
             2 => "k".to_string(),

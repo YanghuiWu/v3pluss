@@ -5,6 +5,7 @@ use std::rc::{Rc, Weak};
 pub type IterVec = Vec<i32>;
 /// Type alias for the array access indices, with usize elements.
 pub type AryAcc = Vec<usize>;
+pub(crate) type DynFunc = dyn for<'a> Fn(&'a [i32]) -> Vec<usize>;
 
 /// Each loop and statement is a node in a loop tree.
 #[derive(Debug)]
@@ -200,8 +201,7 @@ impl Node {
                 let indices = (ary_ref.sub)(&[0, 1, 2, 3]); // Assuming a 3-dimensional array
                 let named_indices: Vec<String> = indices
                     .iter()
-                    .enumerate()
-                    .map(|(_idx, val)| match val {
+                    .map(|val| match val {
                         0 => "i".to_string(),
                         1 => "j".to_string(),
                         2 => "k".to_string(),

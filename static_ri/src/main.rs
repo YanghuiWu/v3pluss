@@ -106,10 +106,7 @@ pub fn sample_gen(
                     dist.sample(&mut rng)
                 })
                 .collect();
-            samples
-                .entry(*ref_id)
-                .or_insert_with(BTreeSet::new)
-                .insert(sample);
+            samples.entry(*ref_id).or_default().insert(sample);
         }
     }
     // ans.clone().into_iter().for_each(|(ref_id, samples)| {

@@ -147,7 +147,7 @@ impl<'a> TracingContext<'a> {
             Stmt::Ref(ary_ref) => {
                 debug!("sample_ri arr ref: {:#?}", self.code);
                 let _addr = access3addr(ary_ref, &self.ivec, self.ds, self.cls) as u64;
-                if samples.get(counter_ref).is_some() {
+                if samples.contains_key(counter_ref) {
                     *counter_ref += 1;
                 }
             }

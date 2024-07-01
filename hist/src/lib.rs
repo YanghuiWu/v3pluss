@@ -42,7 +42,7 @@ impl fmt::Display for Hist {
                 hvec.remove(0);
             }
             writeln!(f, "value, count")?;
-            hvec.into_iter().fold(Ok(()), |_, (d, cnt)| {
+            hvec.into_iter().try_fold((), |_, (d, cnt)| {
                 writeln!(
                     f,
                     "{}, {}",
