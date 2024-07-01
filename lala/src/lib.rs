@@ -216,9 +216,9 @@ mod tests {
     fn matmul() {
         let n: usize = 10; // array dim
         let ubound = n as i32; // loop bound
-        let mut i_loop = Node::new_single_loop("i", 0, ubound);
-        let mut j_loop = Node::new_single_loop("j", 0, ubound);
-        let mut k_loop = Node::new_single_loop("k", 0, ubound);
+        let i_loop = Node::new_single_loop("i", 0, ubound);
+        let j_loop = Node::new_single_loop("j", 0, ubound);
+        let k_loop = Node::new_single_loop("k", 0, ubound);
 
         // creating C[i,j] += A[i,k] * B[k,j]
         let ref_c = Node::new_ref("C", vec![n, n], |ijk| {
@@ -234,13 +234,13 @@ mod tests {
         // Choose the loop order here by specifying the order of the loops
         // let loop_order = &mut [&mut i_loop, &mut j_loop, &mut k_loop];
         // let loop_order = &mut [&mut i_loop, &mut k_loop, &mut j_loop];
-        let loop_order = &mut [&mut j_loop, &mut k_loop, &mut i_loop];
+        let mut loop_order = vec![j_loop, k_loop, i_loop];
         // Add array references to the innermost loop after nesting the loops
         [ref_c, ref_a, ref_b]
             .iter_mut()
             .for_each(|s| Node::extend_loop_body(loop_order.last_mut().unwrap(), s));
 
-        let mut nested_loops_top = Node::nest_loops(loop_order);
+        let mut nested_loops_top = dace::nest_loops(loop_order);
 
         let arr_refs = count_arr_refs(&nested_loops_top);
 

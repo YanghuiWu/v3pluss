@@ -7,3 +7,4 @@ edition = "2021"
 dace = { path = "../dace" }
 dace_tests = { path = "../dace_tests" }
 static_rd = { path = "../static_rd" }
+static_ri = { path = "../static_ri" }

@@ -10,14 +10,12 @@ pub type AryAcc = Vec<usize>;
 #[derive(Debug)]
 pub struct Node {
     pub stmt: Stmt,
-    parent: Weak<Node>,
+    pub(crate) parent: Weak<Node>,
 }
 
 #[derive(Debug)]
 pub enum Stmt {
-    /// A single loop
     Loop(LoopStmt),
-    /// A statement is a sequence of array references
     Ref(AryRef),
     Block(Vec<Rc<Node>>),
     Branch(BranchStmt),
@@ -27,6 +25,7 @@ pub struct AryRef {
     pub name: String,
     /// array dimensions, e.g. [5,5]
     pub dim: Vec<usize>,
+    pub indices: Vec<String>,
     /// Subscript expressions: one function for each data dimension.
     /// Each function takes the indices of its loop nest and returns indices of the array access.
     #[allow(clippy::type_complexity)]
@@ -68,7 +67,13 @@ pub enum LoopBound {
 
 impl Debug for AryRef {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), std::fmt::Error> {
-        write!(f, "ArrayRef({}, {:?} {:?})", self.name, self.dim, self.base)
+        write!(
+            f,
+            "ArrayRef({}, {:?}, base: {:?})",
+            self.name,
+            self.dim,
+            self.base.unwrap_or(99999)
+        )
     }
 }
 
@@ -243,6 +248,7 @@ impl Node {
         let ref_stmt = AryRef {
             name: ary_nm.to_string(),
             dim: ary_dim,
+            indices: vec![],
             sub: Box::new(ary_sub),
             base: None,
             ref_id: None,
@@ -299,24 +305,6 @@ impl Node {
         // officiating the parent-child relationship
         let stmt_node = unsafe { Rc::get_mut_unchecked(stmt) };
         stmt_node.parent = Rc::downgrade(lup);
-    }
-
-    //Giordan's method for nest_loops that Woody (had already) made below.
-    pub fn loop_body(stmts: &[&mut Rc<Node>]) {
-        stmts.windows(2).rev().for_each(|window| {
-            let prev = &mut Rc::clone(window[0]);
-            let next = &mut Rc::clone(window[1]);
-            Self::extend_loop_body(prev, next);
-        });
-    }
-
-    pub fn nest_loops(order: &mut [&mut Rc<Node>]) -> Rc<Node> {
-        let mut outer_loop = Rc::clone(order[0]);
-        for loop_node in &mut order[1..] {
-            Node::extend_loop_body(&mut outer_loop, loop_node);
-            outer_loop = Rc::clone(loop_node);
-        }
-        Rc::clone(order[0])
     }
 
     pub fn loop_only<U, F>(&self, f: F) -> Option<U>
@@ -401,6 +389,8 @@ impl Node {
 
 #[cfg(test)]
 mod tests {
+    use crate::loop_body;
+
     use super::*;
 
     #[test]
@@ -408,6 +398,7 @@ mod tests {
         let ar = AryRef {
             name: "X".to_string(),
             dim: vec![10],
+            indices: vec![],
             sub: Box::new(|iv| vec![(iv[0] as usize) + 1]),
             base: None,
             ref_id: None,
@@ -421,6 +412,7 @@ mod tests {
         let ar = AryRef {
             name: "A".to_string(),
             dim: vec![10, 10],
+            indices: vec![],
             sub: Box::new(|ijk| vec![ijk[0] as usize, ijk[1] as usize]),
             base: None,
             ref_id: None,
@@ -453,7 +445,7 @@ mod tests {
             .iter_mut()
             .for_each(|s| Node::extend_loop_body(&mut k_loop, s));
 
-        Node::loop_body(&[&mut j_loop, &mut i_loop, &mut k_loop]);
+        loop_body(&[&mut j_loop, &mut i_loop, &mut k_loop]);
 
         assert_eq!(j_loop.node_count(), 6);
     }
