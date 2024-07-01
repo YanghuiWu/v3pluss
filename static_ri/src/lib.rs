@@ -1,3 +1,5 @@
+#![feature(get_mut_unchecked)]
+
 use std::collections::hash_map::Entry;
 use std::collections::{BTreeSet, HashMap};
 use std::rc::Rc;
@@ -25,8 +27,12 @@ pub fn access3addr(
     data_size: usize,
     cache_line_size: usize,
 ) -> usize {
+    // println!("ary_ref: {:?}", ary_ref);
     let ary_index = (ary_ref.sub)(ivec);
+    // println!("ary_index: {:?}", ary_index);
     if ary_index.len() != ary_ref.dim.len() {
+        // println!("ary_index: {:?}", ary_index);
+        // println!("ary_ref.dim: {:?}", ary_ref.dim);
         panic!("Array index and dimension do not match");
     }
 
@@ -49,15 +55,15 @@ struct TracingContext<'a> {
 }
 
 impl<'a> TracingContext<'a> {
-    fn new(code: &'a Rc<Node>) -> Self {
+    fn new(code: &'a Rc<Node>, ds: usize, cls: usize) -> Self {
         TracingContext {
             lat_hash: Default::default(),
             hist: Hist::new(),
             ivec: vec![],
             code,
             counter: 0,
-            ds: 8,
-            cls: 64,
+            ds,
+            cls, //64
         }
     }
 
@@ -150,7 +156,7 @@ impl<'a> TracingContext<'a> {
     }
 }
 
-pub fn tracing_ri(code: &mut Rc<Node>) -> Hist {
-    let mut context = TracingContext::new(code);
+pub fn tracing_ri(code: &mut Rc<Node>, ds: usize, cls: usize) -> Hist {
+    let mut context = TracingContext::new(code, ds, cls);
     context.trace_ri().clone()
 }

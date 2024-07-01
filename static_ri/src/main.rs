@@ -14,6 +14,8 @@ use dace::ast::{LoopBound, LoopStmt, Node, Stmt};
 use dace_tests::polybench;
 use static_ri::tracing_ri;
 
+mod test;
+
 fn main() {
     tracing_subscriber::fmt()
         .with_env_filter(EnvFilter::from_env("LOG_LEVEL"))
@@ -22,13 +24,11 @@ fn main() {
     let mut trace = polybench::gemm(128);
     let mut ref_counter = 0;
     let start = Instant::now();
-    // let hist = static_rd::trace::trace(&mut trace);
-    // let hist = static_rd::trace::tracing_ri(&mut trace);
-    let _hist = tracing_ri(&mut trace);
+    let _hist = tracing_ri(&mut trace, 8, 64);
     let mut ans = HashMap::new();
     sample_collect(&trace, &mut wrapping_loop, &mut ans, &mut ref_counter);
-    let _samples: HashMap<usize, std::collections::BTreeSet<Vec<usize>>> =
-        sample_gen(&mut ans, 0.1);
+    let _samples = sample_gen(&mut ans, 0.1);
+
     let end = Instant::now();
     println!("gemm trace time: {:?}", end - start);
     // println!("collected: {ans:#?}");
@@ -74,7 +74,7 @@ pub fn sample_collect<'a>(
                 sample_collect(i, wrapping_loops, ans, ref_counter);
             }
         }
-        Stmt::Branch(_) => unimplemented!("branch is not supported yet"),
+        Stmt::Branch(_) => unimplemented!("Branch statements are not supported yet"),
     }
 }
 
@@ -82,42 +82,40 @@ pub fn sample_gen(
     collected: &mut HashMap<usize, Vec<(&str, Range<usize>)>>,
     sampling_rate: f32,
 ) -> HashMap<usize, BTreeSet<Vec<usize>>> {
-    let mut intermidiate = HashMap::<usize, f32>::new();
-    collected.iter_mut().for_each(|(ref_id, accesses)| {
-        let mut sample_times = 1.;
-        accesses.iter_mut().for_each(|(_, range)| {
-            let (lb, ub) = (range.start, range.end);
-            sample_times *= (ub - lb) as f32 * sampling_rate;
+    let mut sampling_counts = HashMap::<usize, f32>::new();
+    for (ref_id, accesses) in collected.iter() {
+        let sample_count = accesses.iter().fold(1.0, |acc, (_, range)| {
+            acc * (range.end - range.start) as f32 * sampling_rate
         });
-        intermidiate.insert(*ref_id, sample_times);
-    });
-    debug!("collected: {:#?}", collected);
-    debug!("intermidiate: {:#?}", intermidiate);
+        sampling_counts.insert(*ref_id, sample_count);
+    }
 
-    let mut ans = HashMap::<usize, BTreeSet<Vec<usize>>>::new();
-    collected.iter_mut().for_each(|(ref_id, accesses)| {
-        while ans.get(ref_id).unwrap_or(&BTreeSet::new()).len()
-            < unsafe { ceilf32(*intermidiate.get(ref_id).unwrap()) as usize }
-        // FIXME: no sure if f32 is enough here
-        {
-            let mut sample_name: Vec<usize> = Vec::new();
-            accesses.iter_mut().for_each(|(_, range)| {
-                let (lb, ub) = (range.start, range.end);
-                let mut rng = rand::thread_rng();
-                let dist = rand::distributions::Uniform::new(0, ub - lb);
-                let rand_num = dist.sample(&mut rng);
-                sample_name.push(rand_num);
-            });
-            ans.entry(*ref_id)
-                .or_insert(BTreeSet::new())
-                .insert(sample_name);
-            // kinda weird here, feels like wasting a cycle of loop
+    debug!("collected: {:#?}", collected);
+    debug!("Sampling counts: {:#?}", sampling_counts);
+
+    let mut samples = HashMap::<usize, BTreeSet<Vec<usize>>>::new();
+    let mut rng = rand::thread_rng();
+
+    for (ref_id, accesses) in collected.iter() {
+        let required_samples = unsafe { ceilf32(*sampling_counts.get(ref_id).unwrap()) as usize };
+        while samples.get(ref_id).unwrap_or(&BTreeSet::new()).len() < required_samples {
+            let sample: Vec<usize> = accesses
+                .iter()
+                .map(|(_, range)| {
+                    let dist = rand::distributions::Uniform::new(range.start, range.end);
+                    dist.sample(&mut rng)
+                })
+                .collect();
+            samples
+                .entry(*ref_id)
+                .or_insert_with(BTreeSet::new)
+                .insert(sample);
         }
-    });
+    }
     // ans.clone().into_iter().for_each(|(ref_id, samples)| {
     //     println!("ref_id: {}", ref_id);
     //     println!("samples: {}", samples.len());
     // });
-    print!("ans: {:#?}", ans);
-    ans
+    print!("ans: {:#?}", samples);
+    samples
 }
