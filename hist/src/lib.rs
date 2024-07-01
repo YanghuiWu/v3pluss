@@ -37,12 +37,18 @@ impl fmt::Display for Hist {
             let max = hvec.last().unwrap().0;
             writeln!(f, "Reuse distance histogram:\n\t{} distance value(s), min {:?}, max {:?}\n\t{} accesses", hvec.len(), min, max, tot)?;
             if let Some((None, count)) = hvec.first() {
-                writeln!(f, "\t({} first accesses)", count)?;
+                // writeln!(f, "\t({} cold accesses)", count)?;
+                hvec.push((None, *count));
                 hvec.remove(0);
             }
             writeln!(f, "value, count")?;
             hvec.into_iter().fold(Ok(()), |_, (d, cnt)| {
-                writeln!(f, "{}, {}", d.unwrap_or_default(), cnt)
+                writeln!(
+                    f,
+                    "{}, {}",
+                    d.map_or_else(|| "Cold".to_string(), |v| v.to_string()),
+                    cnt
+                )
             })
         } else {
             writeln!(f, "Reuse distance histogram is empty")?;
@@ -86,17 +92,7 @@ mod tests {
         assert_eq!(v[2], (Some(100), 1));
         assert_eq!(v[0], (None, 1));
 
-        assert_eq!(
-            format!("{}", h),
-            "Reuse distance histogram:
-	3 distance value(s), min None, max Some(100)
-	4 accesses
-	(1 first accesses)
-value, count
-1, 2
-100, 1
-"
-        );
+        assert_eq!(format!("{}", h), "Reuse distance histogram:\n\t3 distance value(s), min None, max Some(100)\n\t4 accesses\nvalue, count\n1, 2\n100, 1\nCold, 1\n");
 
         // use cargo test -- --show-output to see the result
         println!("{}", h);
