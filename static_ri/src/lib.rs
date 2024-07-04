@@ -27,12 +27,11 @@ pub fn access3addr(
     data_size: usize,
     cache_line_size: usize,
 ) -> usize {
-    // println!("ary_ref: {:?}", ary_ref);
     let ary_index = (ary_ref.sub)(ivec);
+    // println!("ary_ref: {:?}", ary_ref);
+    // println!("ivec: {:?}", ivec);
     // println!("ary_index: {:?}", ary_index);
     if ary_index.len() != ary_ref.dim.len() {
-        // println!("ary_index: {:?}", ary_index);
-        // println!("ary_ref.dim: {:?}", ary_ref.dim);
         panic!("Array index and dimension do not match");
     }
 
@@ -175,8 +174,10 @@ mod tests {
         let ref_a = dace::a_ref("A", vec![n, n], vec!["i", "k"]);
         let ref_b = dace::a_ref("B", vec![n, n], vec!["k", "j"]);
 
-        for refs in &mut [ref_c.clone(), ref_a.clone(), ref_b.clone()] {
-            dace::insert_at(refs, &mut nested_loops_top, "k");
+        let mut refs = [ref_c.clone(), ref_a.clone(), ref_b.clone()];
+
+        for a_ref in &mut refs {
+            dace::insert_at(a_ref, &mut nested_loops_top, "k");
         }
 
         set_arybase(&nested_loops_top);
@@ -189,8 +190,6 @@ mod tests {
 
         let data_size = 8; // Replace with the data size for your test
         let cache_line_size = 8; // Replace with the cache line size for your test
-
-        let refs = [ref_c, ref_a, ref_b];
 
         for (index, node) in refs.iter().enumerate() {
             if let Stmt::Ref(ary_ref) = &node.stmt {
@@ -233,5 +232,23 @@ mod tests {
         assert_eq!(hist3.hist.get(&Some(3)), Some(&1980));
         assert_eq!(hist3.hist.get(&Some(30)), Some(&990));
         assert_eq!(hist3.hist.get(&None), Some(&30));
+    }
+
+    #[test]
+    fn test_10010001() {
+        let n: usize = 4; // array dim
+        let ubound = n as i32; // loop bound
+        let mut nested_loops =
+            dace::nested_loops(&vec!["i", "j", "k", "l", "m", "n", "o", "p"], 0, ubound);
+        let mut ref_c = dace::a_ref("c", vec![n, n, n], vec!["i", "l", "p"]);
+
+        dace::insert_at(&mut ref_c, &mut nested_loops, "p");
+
+        set_arybase(&nested_loops);
+        let hist = tracing_ri(&mut nested_loops, 8, 8);
+        println!("{}", hist);
+        assert_eq!(hist.hist.get(&Some(4)), Some(&64512));
+        assert_eq!(hist.hist.get(&Some(772)), Some(&960));
+        assert_eq!(hist.hist.get(&None), Some(&64));
     }
 }

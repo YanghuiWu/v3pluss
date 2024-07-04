@@ -4,7 +4,7 @@
 
 use std::rc::Rc;
 
-use crate::ast::Node;
+use crate::ast::{Node, Stmt};
 
 pub mod arybase;
 pub mod ast;
@@ -48,6 +48,11 @@ fn generate_sub(indices: Vec<String>, loops: Vec<String>) -> Box<ast::DynFunc> {
             if let Some(pos) = loops.iter().position(|i| *i == *idx) {
                 rank_indices.push(pos);
                 // println!("pos: {:?}", pos);
+            } else {
+                panic!(
+                    "Index '{}' not found in loop indices: {:?}\nCheck where you insert the ref.",
+                    idx, loops
+                );
             }
         }
         rank_indices.iter().map(|&pos| ivec[pos] as usize).collect()
@@ -108,6 +113,124 @@ pub fn insert_at(node: &mut Rc<Node>, head: &mut Rc<Node>, iv: &str) -> bool {
         _ => {
             panic!("Don't support branching yet!");
         }
+    }
+}
+
+pub fn insert_at_innermost(node: &mut Rc<Node>, head: &mut Rc<Node>) -> Option<String> {
+    let target = assign_ranks(head, 0);
+    let b = insert_at(node, head, &target.loop_only(|lp| lp.iv.clone()).unwrap());
+    // head.print_structure(0);
+    if b {
+        Some(target.loop_only(|lp| lp.iv.clone()).unwrap())
+    } else {
+        None
+    }
+}
+
+#[allow(dead_code)]
+pub fn assign_ranks_reverse(node: &mut Rc<Node>) -> i32 {
+    let node = unsafe { Rc::get_mut_unchecked(node) };
+    match &mut node.stmt {
+        Stmt::Loop(loop_stmt) => {
+            // Recursively assign ranks to the loops in the body
+            let max_inner_rank = loop_stmt
+                .body
+                .iter_mut()
+                .map(assign_ranks_reverse)
+                .max()
+                .unwrap_or(0);
+
+            // Assign the current rank to this loop
+            loop_stmt.rank = max_inner_rank;
+
+            max_inner_rank + 1
+        }
+        Stmt::Block(block_stmt) => {
+            // Recursively assign ranks to the loops in the body
+            let max_inner_rank = block_stmt
+                .iter_mut()
+                .map(assign_ranks_reverse)
+                .max()
+                .unwrap_or(0);
+
+            max_inner_rank
+        }
+        _ => {
+            // println!("Not loop {:?}", node.stmt);
+            0
+        }
+    }
+}
+
+// #[allow(dead_code)]
+// fn assign_ranks(node: &mut Rc<Node>, current_rank: i32) -> i32 {
+//     let node = unsafe { Rc::get_mut_unchecked(node) };
+//     match &mut node.stmt {
+//         Stmt::Loop(loop_stmt) => unsafe {
+//             // Assign the current rank to this loop
+//             loop_stmt.rank = current_rank;
+//
+//             // Recursively assign ranks to the loops in the body
+//             let max_inner_rank = loop_stmt
+//                 .body
+//                 .iter_mut()
+//                 .map(|child| assign_ranks(child, current_rank + 1))
+//                 .max()
+//                 .unwrap_or(current_rank);
+//
+//             max_inner_rank
+//         },
+//         Stmt::Block(block_stmt) => unsafe {
+//             // Recursively assign ranks to the loops in the body
+//             let max_inner_rank = block_stmt
+//                 .iter_mut()
+//                 .map(|child| assign_ranks(child, current_rank))
+//                 .max()
+//                 .unwrap_or(current_rank);
+//
+//             max_inner_rank
+//         },
+//         _ => current_rank,
+//     }
+// }
+
+/// Assign ranks to the loops in the AST. and return the node with the highest rank.
+pub fn assign_ranks(node: &mut Rc<Node>, current_rank: i32) -> Rc<Node> {
+    let cur = Rc::clone(node);
+    let node_ptr = unsafe { Rc::get_mut_unchecked(node) };
+    match &mut node_ptr.stmt {
+        Stmt::Loop(loop_stmt) => {
+            // Assign the current rank to this loop
+            loop_stmt.rank = current_rank;
+
+            // Recursively assign ranks to the loops in the body and find the node with the highest rank
+            // let mut max_rank_node = Rc::clone(&noe);
+            let max_inner_rank = loop_stmt
+                .body
+                .iter_mut()
+                .map(|child| assign_ranks(child, current_rank + 1))
+                .max_by_key(|n| n.rank().unwrap_or(-1))
+                .unwrap_or(Rc::clone(&cur));
+
+            // Compare the rank of the current node with the highest rank node found in its body
+            if max_inner_rank.rank().unwrap_or(-1) > loop_stmt.rank {
+                max_inner_rank
+            } else {
+                Rc::clone(node)
+            }
+            // max_rank_node
+        }
+        Stmt::Block(block_stmt) => {
+            // Recursively assign ranks to the loops in the body and find the node with the highest rank
+            let max_inner_rank = block_stmt
+                .iter_mut()
+                .map(|child| assign_ranks(child, current_rank))
+                .max_by_key(|n| n.rank())
+                .unwrap_or(Rc::clone(&cur));
+
+            max_inner_rank
+        }
+        _ => Rc::clone(node),
     }
 }
 

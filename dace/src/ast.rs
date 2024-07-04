@@ -233,6 +233,10 @@ impl Node {
         }
     }
 
+    pub fn rank(&self) -> Option<i32> {
+        self.loop_only(|lp| lp.rank)
+    }
+
     /// Create a new Node with a given statement.
     pub fn new_node(a_stmt: Stmt) -> Rc<Node> {
         Rc::new(Node {

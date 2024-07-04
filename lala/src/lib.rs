@@ -8,71 +8,6 @@ use std::rc::Rc;
 use dace::ast::{AryRef, Node, Stmt};
 
 #[allow(dead_code)]
-fn assign_ranks_reverse(node: &mut Node) -> i32 {
-    match &mut node.stmt {
-        Stmt::Loop(loop_stmt) => unsafe {
-            // Recursively assign ranks to the loops in the body
-            let max_inner_rank = loop_stmt
-                .body
-                .iter_mut()
-                .map(|child| assign_ranks_reverse(Rc::get_mut_unchecked(child)))
-                .max()
-                .unwrap_or(0);
-
-            // Assign the current rank to this loop
-            loop_stmt.rank = max_inner_rank;
-
-            max_inner_rank + 1
-        },
-        Stmt::Block(block_stmt) => unsafe {
-            // Recursively assign ranks to the loops in the body
-            let max_inner_rank = block_stmt
-                .iter_mut()
-                .map(|child| assign_ranks_reverse(Rc::get_mut_unchecked(child)))
-                .max()
-                .unwrap_or(0);
-
-            max_inner_rank
-        },
-        _ => {
-            // println!("Not loop {:?}", node.stmt);
-            0
-        }
-    }
-}
-
-#[allow(dead_code)]
-fn assign_ranks(node: &mut Node, current_rank: i32) -> i32 {
-    match &mut node.stmt {
-        Stmt::Loop(loop_stmt) => unsafe {
-            // Assign the current rank to this loop
-            loop_stmt.rank = current_rank;
-
-            // Recursively assign ranks to the loops in the body
-            let max_inner_rank = loop_stmt
-                .body
-                .iter_mut()
-                .map(|child| assign_ranks(Rc::get_mut_unchecked(child), current_rank + 1))
-                .max()
-                .unwrap_or(current_rank);
-
-            max_inner_rank
-        },
-        Stmt::Block(block_stmt) => unsafe {
-            // Recursively assign ranks to the loops in the body
-            let max_inner_rank = block_stmt
-                .iter_mut()
-                .map(|child| assign_ranks(Rc::get_mut_unchecked(child), current_rank))
-                .max()
-                .unwrap_or(current_rank);
-
-            max_inner_rank
-        },
-        _ => current_rank,
-    }
-}
-
-#[allow(dead_code)]
 fn count_arr_refs(node: &Node) -> usize {
     let mut count = 0;
 
@@ -121,27 +56,27 @@ fn print_ri_and_count_arr_refs(node: &Node) -> usize {
 
 #[allow(dead_code)]
 // Calculate reuse intervals
-unsafe fn calculate_reuse_intervals(
+fn calculate_reuse_intervals(
     node: &mut Rc<Node>,
     loop_ranks: &mut HashMap<String, i32>,
     num_arr_refs: usize,
 ) {
-    let node = Rc::get_mut_unchecked(node);
+    let node = unsafe { Rc::get_mut_unchecked(node) };
     match &mut node.stmt {
         Stmt::Ref(arr_ref_stmt) => {
             determine_reuse_intervals(arr_ref_stmt, loop_ranks, num_arr_refs);
         }
-        Stmt::Loop(loop_stmt) => unsafe {
+        Stmt::Loop(loop_stmt) => {
             loop_ranks.insert(loop_stmt.iv.clone(), loop_stmt.rank);
             for child in &mut loop_stmt.body {
                 calculate_reuse_intervals(child, loop_ranks, num_arr_refs);
             }
-        },
-        Stmt::Block(block_stmt) => unsafe {
+        }
+        Stmt::Block(block_stmt) => {
             for child in block_stmt {
                 calculate_reuse_intervals(child, loop_ranks, count_arr_refs(child));
             }
-        },
+        }
         _ => {}
     }
 }
@@ -245,10 +180,8 @@ mod tests {
 
         let (tbl, _size) = set_arybase(&mut nested_loops_top);
         println!("{:?}", tbl);
-        unsafe {
-            assign_ranks(Rc::get_mut_unchecked(&mut nested_loops_top), 0);
-            calculate_reuse_intervals(&mut nested_loops_top, &mut HashMap::new(), arr_refs);
-        }
+        dace::assign_ranks(&mut nested_loops_top, 0);
+        calculate_reuse_intervals(&mut nested_loops_top, &mut HashMap::new(), arr_refs);
         nested_loops_top.print_structure(0);
         let result = trace(&mut nested_loops_top, LRUStack::new());
         println!("{}", result.0);
@@ -265,14 +198,10 @@ mod tests {
 
         // let mut bench = polybench::trmm_trace(1024, 1024);
         let mut bench = polybench::symm(1024, 1024);
-        unsafe {
-            assign_ranks(Rc::get_mut_unchecked(&mut bench), 0);
-        }
+        dace::assign_ranks(&mut bench, 0);
         bench.print_structure(0);
         let arr_refs = count_arr_refs(&bench);
-        unsafe {
-            calculate_reuse_intervals(&mut bench, &mut HashMap::new(), arr_refs);
-        }
+        calculate_reuse_intervals(&mut bench, &mut HashMap::new(), arr_refs);
         print_ri_and_count_arr_refs(&bench);
 
         // let result = trace(&mut bench, LRUStack::new());
