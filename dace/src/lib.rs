@@ -19,8 +19,8 @@ pub fn loop_body(stmts: &[&mut Rc<Node>]) {
     });
 }
 
-pub fn nested_loops(loop_names: &[&str], lb: i32, ub: i32) -> Rc<Node> {
-    nest_loops(create_loops(loop_names, lb, ub))
+pub fn nested_loops(loop_names: &[&str], ub: i32) -> Rc<Node> {
+    nest_loops(create_loops(loop_names, 0, ub))
 }
 
 pub fn nest_loops(mut order: Vec<Rc<Node>>) -> Rc<Node> {
@@ -73,10 +73,61 @@ pub fn get_loops_indices(node: Rc<Node>) -> Vec<String> {
     loops
 }
 
+/// Creates a reference node for an array with specified dimensions and indices.
+///
+/// This function constructs a reference node to an array, allowing for the specification
+/// of each dimension's size and the indices used for referencing. It is suitable for arrays
+/// where dimensions may vary in size.
+///
+/// # Parameters
+/// - `nm`: A string slice representing the name of the array.
+/// - `dim`: A vector of `usize` where each element represents the size of a dimension in the array.
+/// - `ind`: A vector of string slices, each representing an index used for array referencing.
+///
+/// # Returns
+/// Returns a `Rc<Node>` pointing to the newly created reference node.
+///
+/// # Examples
+/// ```
+/// let array_ref = dace::a_ref("myArray", vec![10, 20, 30], vec!["i", "j", "k"]);
+/// ```
 pub fn a_ref(nm: &str, dim: Vec<usize>, ind: Vec<&str>) -> Rc<Node> {
     let ref_stmt = ast::AryRef {
         name: nm.to_string(),
         dim,
+        indices: ind.iter().map(|s| s.to_string()).collect(),
+        sub: Box::new(|_i| vec![0]),
+        base: None,
+        ref_id: None,
+        ri: vec![],
+    };
+    Node::new_node(ast::Stmt::Ref(ref_stmt))
+}
+
+/// Creates a square reference node for an array where all dimensions are of the same size.
+///
+/// This function is a specialized version of `a_ref` for creating references to square (or cubic, etc.)
+/// arrays, where each dimension has the same size. It simplifies the process by requiring only a single
+/// size parameter for all dimensions.
+///
+/// # Parameters
+/// - `nm`: A string slice representing the name of the array.
+/// - `dim`: A `usize` value representing the size of each dimension in the array.
+/// - `ind`: A vector of string slices, each representing an index used for array referencing.
+///
+/// # Returns
+/// Returns a `Rc<Node>` pointing to the newly created square reference node.
+///
+/// # Examples
+/// ```
+/// let square_array_ref = dace::squ_ref("mySquareArray", 10, vec!["i", "j", "k"]);
+/// ```
+pub fn squ_ref(nm: &str, dim: i32, ind: Vec<&str>) -> Rc<Node> {
+    let dim = dim as usize;
+    let dimensions = vec![dim; ind.len()]; // Create a vector with the dimension repeated for each index
+    let ref_stmt = ast::AryRef {
+        name: nm.to_string(),
+        dim: dimensions,
         indices: ind.iter().map(|s| s.to_string()).collect(),
         sub: Box::new(|_i| vec![0]),
         base: None,
@@ -116,14 +167,14 @@ pub fn insert_at(node: &mut Rc<Node>, head: &mut Rc<Node>, iv: &str) -> bool {
     }
 }
 
-pub fn insert_at_innermost(node: &mut Rc<Node>, head: &mut Rc<Node>) -> Option<String> {
+pub fn insert_at_innermost(node: &mut Rc<Node>, head: &mut Rc<Node>) -> String {
     let target = assign_ranks(head, 0);
     let b = insert_at(node, head, &target.loop_only(|lp| lp.iv.clone()).unwrap());
     // head.print_structure(0);
     if b {
-        Some(target.loop_only(|lp| lp.iv.clone()).unwrap())
+        target.loop_only(|lp| lp.iv.clone()).unwrap()
     } else {
-        None
+        "None".to_string()
     }
 }
 

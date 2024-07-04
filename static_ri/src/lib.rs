@@ -67,7 +67,7 @@ impl<'a> TracingContext<'a> {
     }
 
     fn trace_ri(&mut self) -> Hist {
-        set_arybase(self.code);
+        // set_arybase(self.code);
         self.trace_node(self.code);
         self.hist.clone()
     }
@@ -155,9 +155,12 @@ impl<'a> TracingContext<'a> {
     }
 }
 
-pub fn tracing_ri(code: &mut Rc<Node>, ds: usize, cls: usize) -> Hist {
-    let mut context = TracingContext::new(code, ds, cls);
-    context.trace_ri().clone()
+pub fn tracing_ri(code: &mut Rc<Node>, data_size: usize, cache_line_size: usize) -> Hist {
+    set_arybase(code);
+    let mut context = TracingContext::new(code, data_size, cache_line_size);
+    let h = context.trace_ri().clone();
+    println!("{}", h);
+    h
 }
 
 #[cfg(test)]
@@ -168,7 +171,7 @@ mod tests {
     fn test_access3addr_and_tracing() {
         let n: usize = 10; // array dim
         let ubound = n as i32; // loop bound
-        let mut nested_loops_top = dace::nested_loops(&vec!["i", "j", "k"], 0, ubound);
+        let mut nested_loops_top = dace::nested_loops(&vec!["i", "j", "k"], ubound);
 
         let ref_c = dace::a_ref("C", vec![n, n], vec!["i", "j"]);
         let ref_a = dace::a_ref("A", vec![n, n], vec!["i", "k"]);
@@ -211,24 +214,23 @@ mod tests {
             }
         }
 
+        print!("\nb = 1\t");
         let hist = tracing_ri(&mut nested_loops_top.clone(), 8, 8);
         assert_eq!(hist.hist.get(&Some(3)), Some(&900));
         assert_eq!(hist.hist.get(&Some(30)), Some(&900));
         assert_eq!(hist.hist.get(&Some(300)), Some(&900));
         assert_eq!(hist.hist.get(&None), Some(&300));
 
-        println!("\n{}", hist);
-
+        print!("b = 5\t");
         let hist2 = tracing_ri(&mut nested_loops_top.clone(), 8, 40);
-        println!("{}", hist2);
         assert_eq!(hist2.hist.get(&Some(3)), Some(&1780));
         assert_eq!(hist2.hist.get(&Some(18)), Some(&180));
         assert_eq!(hist2.hist.get(&Some(30)), Some(&800));
         assert_eq!(hist2.hist.get(&Some(180)), Some(&180));
         assert_eq!(hist2.hist.get(&None), Some(&60));
 
+        print!("b = 10\t");
         let hist3 = tracing_ri(&mut nested_loops_top.clone(), 8, 80);
-        println!("{}", hist3);
         assert_eq!(hist3.hist.get(&Some(3)), Some(&1980));
         assert_eq!(hist3.hist.get(&Some(30)), Some(&990));
         assert_eq!(hist3.hist.get(&None), Some(&30));
@@ -239,14 +241,12 @@ mod tests {
         let n: usize = 4; // array dim
         let ubound = n as i32; // loop bound
         let mut nested_loops =
-            dace::nested_loops(&vec!["i", "j", "k", "l", "m", "n", "o", "p"], 0, ubound);
+            dace::nested_loops(&vec!["i", "j", "k", "l", "m", "n", "o", "p"], ubound);
         let mut ref_c = dace::a_ref("c", vec![n, n, n], vec!["i", "l", "p"]);
 
         dace::insert_at(&mut ref_c, &mut nested_loops, "p");
 
-        set_arybase(&nested_loops);
         let hist = tracing_ri(&mut nested_loops, 8, 8);
-        println!("{}", hist);
         assert_eq!(hist.hist.get(&Some(4)), Some(&64512));
         assert_eq!(hist.hist.get(&Some(772)), Some(&960));
         assert_eq!(hist.hist.get(&None), Some(&64));

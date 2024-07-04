@@ -198,23 +198,32 @@ impl Node {
                 }
             }
             Stmt::Ref(ary_ref) => {
-                let indices = (ary_ref.sub)(&[0, 1, 2, 3]); // Assuming a 3-dimensional array
-                let named_indices: Vec<String> = indices
-                    .iter()
-                    .map(|val| match val {
-                        0 => "i".to_string(),
-                        1 => "j".to_string(),
-                        2 => "k".to_string(),
-                        3 => "l".to_string(),
-                        _ => format!("Dimension > 3: {}", val),
-                    })
-                    .collect();
-                println!(
-                    "{}{}[{}]",
-                    indentation,
-                    ary_ref.name,
-                    named_indices.join(", ")
-                );
+                if ary_ref.indices.is_empty() {
+                    let indices = (ary_ref.sub)(&[0, 1, 2, 3]); // Assuming a 3-dimensional array
+                    let named_indices: Vec<String> = indices
+                        .iter()
+                        .map(|val| match val {
+                            0 => "i".to_string(),
+                            1 => "j".to_string(),
+                            2 => "k".to_string(),
+                            3 => "l".to_string(),
+                            _ => format!("Dimension > 3: {}", val),
+                        })
+                        .collect();
+                    println!(
+                        "{}{}[{}]",
+                        indentation,
+                        ary_ref.name,
+                        named_indices.join(", ")
+                    );
+                } else {
+                    println!(
+                        "{}{}[{}]",
+                        indentation,
+                        ary_ref.name,
+                        ary_ref.indices.join(", ")
+                    );
+                }
             }
             Stmt::Block(children) => {
                 println!("{}Block", indentation);
