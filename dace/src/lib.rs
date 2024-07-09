@@ -19,8 +19,8 @@ pub fn loop_body(stmts: &[&mut Rc<Node>]) {
     });
 }
 
-pub fn nested_loops(loop_names: &[&str], ub: i32) -> Rc<Node> {
-    nest_loops(create_loops(loop_names, 0, ub))
+pub fn nested_loops(vars: &[&str], ub: i32) -> Rc<Node> {
+    nest_loops(create_loops(vars, 0, ub))
 }
 
 pub fn nest_loops(mut order: Vec<Rc<Node>>) -> Rc<Node> {

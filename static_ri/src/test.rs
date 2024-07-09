@@ -1,9 +1,81 @@
 #[cfg(test)]
 mod tests {
     use dace;
-    use dace::arybase::set_arybase;
     use dace::ast::Node;
+    use dace::nest_loops;
     use static_ri::tracing_ri;
+
+    #[test]
+    fn test_100b0() {
+        let n = 10; // array dim
+
+        let mut nested_loops = dace::nested_loops(&vec!["i", "j", "k", "l", "m"], n);
+        let mut ref_c = dace::squ_ref("c", n, vec!["i", "l"]);
+        dace::insert_at_innermost(&mut ref_c, &mut nested_loops);
+        // nested_loops.print_structure(0);
+
+        tracing_ri(&mut nested_loops, 8, 40);
+    }
+
+    #[test]
+    fn test_10b01() {
+        let n = 10; // array dim
+
+        let mut nested_loops = dace::nested_loops(&vec!["i", "j", "k", "l", "m"], n);
+        let mut ref_c = dace::squ_ref("c", n, vec!["i", "m", "k"]);
+        dace::insert_at_innermost(&mut ref_c, &mut nested_loops);
+        nested_loops.print_structure(0);
+
+        tracing_ri(&mut nested_loops, 8, 40);
+    }
+
+    #[test]
+    fn test_b10() {
+        let n = 10; // array dim
+
+        let mut nested_loops = dace::nested_loops(&vec!["j", "k", "i"], n);
+        let mut ref_c = dace::squ_ref("c", n, vec!["k", "j"]);
+
+        dace::insert_at_innermost(&mut ref_c, &mut nested_loops);
+
+        tracing_ri(&mut nested_loops, 8, 8);
+    }
+
+    #[test]
+    fn test_111() {
+        let n: usize = 10; // array dim
+        let ubound = n as i32; // loop bound
+        let mut nested_loops = dace::nested_loops(&vec!["k", "j", "i"], ubound);
+        let mut ref_c = dace::a_ref("c", vec![n, n, n], vec!["i", "j", "k"]);
+
+        dace::insert_at(&mut ref_c, &mut nested_loops, "i");
+
+        tracing_ri(&mut nested_loops, 8, 8);
+    }
+
+    #[test]
+    fn test_access3addr_and_tracing() {
+        let n: usize = 10; // array dim
+        let ubound = n as i32; // loop bound
+        let mut nested_loops_top = dace::nested_loops(&vec!["i", "j", "k"], ubound);
+
+        let ref_c = dace::a_ref("C", vec![n, n], vec!["i", "j"]);
+        let ref_a = dace::a_ref("A", vec![n, n], vec!["i", "k"]);
+        let ref_b = dace::a_ref("B", vec![n, n], vec!["k", "j"]);
+
+        let mut refs = [ref_c.clone(), ref_a.clone(), ref_b.clone()];
+
+        for a_ref in &mut refs {
+            dace::insert_at(a_ref, &mut nested_loops_top, "k");
+        }
+        tracing_ri(&mut nested_loops_top.clone(), 8, 40);
+
+        let mut nested_loops_top = dace::nested_loops(&vec!["j", "k", "i"], ubound);
+        for a_ref in &mut refs {
+            dace::insert_at(a_ref, &mut nested_loops_top, "i");
+        }
+        tracing_ri(&mut nested_loops_top.clone(), 8, 40);
+    }
 
     #[test]
     fn test_tracing_ri2() {
@@ -13,7 +85,6 @@ mod tests {
         let j_loop = Node::new_single_loop("j", 0, ubound);
         let k_loop = Node::new_single_loop("k", 0, ubound);
 
-        // creating C[i,j] += A[i,k] * B[k,j]\
         #[allow(unused_variables)]
         let ref_c = Node::new_ref("C", vec![n, n], |ijk| {
             vec![ijk[0] as usize, ijk[1] as usize]
@@ -27,35 +98,20 @@ mod tests {
             vec![ijk[2] as usize, ijk[1] as usize]
         });
 
-        // Choose the loop order here by specifying the order of the loops
         let mut loop_order = vec![i_loop, j_loop, k_loop];
-        // let loop_order = &mut [&mut i_loop, &mut k_loop, &mut j_loop];
-        // let loop_order = &mut [&mut j_loop, &mut k_loop, &mut i_loop];
-        // Add array references to the innermost loop after nesting the loops
         [ref_a.clone()]
             .iter_mut()
             .for_each(|s| Node::extend_loop_body(loop_order.last_mut().unwrap(), s));
 
-        let nested_loops_top = dace::nest_loops(loop_order);
+        let nested_loops_top = nest_loops(loop_order);
 
-        // let n: usize = 100; // array dim
-        // let node = Node::new_ref("C", vec![n, n], |ijk| {
-        //     vec![ijk[0] as usize, ijk[1] as usize]
-        // });
-        set_arybase(&nested_loops_top);
-
-        let hist = tracing_ri(&mut nested_loops_top.clone(), 8, 64);
-
-        // Assert the expected result
-        // Replace with your own expected result
-        println!("{}", hist);
-        // assert_eq!(hist, Hist::new());
+        tracing_ri(&mut nested_loops_top.clone(), 8, 64);
     }
 
     #[test]
     fn test_tracing_101() {
         let n = 8;
-        let mut nest_loops = dace::nested_loops(&vec!["i", "j", "k"], 0, n as i32);
+        let mut nest_loops = dace::nested_loops(&vec!["i", "j", "k"], n as i32);
         let mut ref_c = dace::a_ref("ref_c", vec![n, n], vec!["i", "j"]);
         dace::insert_at(&mut ref_c, &mut nest_loops, "k");
         let mut ref_a = dace::a_ref("ref_a", vec![n, n], vec!["i", "k"]);
@@ -63,15 +119,13 @@ mod tests {
         let mut ref_b = dace::a_ref("ref_b", vec![n, n], vec!["k", "j"]);
         dace::insert_at(&mut ref_b, &mut nest_loops, "k");
 
-        set_arybase(&nest_loops);
-        let hist = tracing_ri(&mut nest_loops.clone(), 8, 64);
-        println!("{}", hist);
+        tracing_ri(&mut nest_loops.clone(), 8, 64);
     }
 
     #[test]
     fn test_tracing_101_2() {
         let n = 20;
-        let mut nest_loops = dace::nested_loops(&vec!["i", "j", "k"], 0, n as i32);
+        let mut nest_loops = dace::nested_loops(&vec!["i", "j", "k"], n as i32);
         let ref_c = dace::a_ref("ref_c", vec![n, n], vec!["i", "j"]);
         let ref_a = dace::a_ref("ref_a", vec![n, n], vec!["i", "k"]);
         let ref_b = dace::a_ref("ref_b", vec![n, n], vec!["k", "j"]);
@@ -80,8 +134,7 @@ mod tests {
             dace::insert_at(s, &mut nest_loops, "k");
         }
 
-        set_arybase(&nest_loops);
-        println!("{}", tracing_ri(&mut nest_loops.clone(), 8, 40));
+        tracing_ri(&mut nest_loops.clone(), 8, 40);
     }
 
     #[test]
@@ -93,198 +146,133 @@ mod tests {
         let j_loop = Node::new_single_loop("j", 0, ubound);
         let k_loop = Node::new_single_loop("k", 0, ubound);
 
-        // let mut ref_o = Node::new_ref("Refo", vec![n, n], |ij| {
-        //     vec![ij[1] as usize, ij[2] as usize]
-        // });
-        // Node::extend_loop_body(&mut j_loop, &mut ref_o);
-
-        // creating C[i,j] += A[i,k] * B[k,j]\
-        #[allow(unused_variables)]
         let ref_a = Node::new_ref("C", vec![n, n], |ijk| {
             vec![(ijk[1] as usize + ijk[2] as usize) / 2, ijk[3] as usize]
         });
 
-        // Choose the loop order here by specifying the order of the loops
         let mut loop_order = vec![h_loop, i_loop, j_loop, k_loop];
         [ref_a.clone()]
             .iter_mut()
             .for_each(|s| Node::extend_loop_body(loop_order.last_mut().unwrap(), s));
 
-        let nested_loops_top = dace::nest_loops(loop_order);
-        set_arybase(&nested_loops_top);
+        let nested_loops_top = nest_loops(loop_order);
 
-        let hist = tracing_ri(&mut nested_loops_top.clone(), 8, 8);
-
-        println!("{}", hist);
+        tracing_ri(&mut nested_loops_top.clone(), 8, 8);
     }
-    /*
+
     #[test]
     fn test_tracing_ri_1010b() {
         let n: usize = 10; // array dim
         let ubound = n as i32; // loop bound
-        let mut i_loop = Node::new_single_loop("i", 0, ubound);
-        let mut j_loop = Node::new_single_loop("j", 0, ubound);
-        let mut k_loop = Node::new_single_loop("k", 0, ubound);
-        let mut l_loop = Node::new_single_loop("l", 0, ubound);
-        let mut m_loop = Node::new_single_loop("m", 0, ubound);
+        let i_loop = Node::new_single_loop("i", 0, ubound);
+        let j_loop = Node::new_single_loop("j", 0, ubound);
+        let k_loop = Node::new_single_loop("k", 0, ubound);
+        let l_loop = Node::new_single_loop("l", 0, ubound);
+        let m_loop = Node::new_single_loop("m", 0, ubound);
 
-        // creating C[i,j] += A[i,k] * B[k,j]\
-        #[allow(unused_variables)]
         let ref_3 = Node::new_ref("Ref3", vec![n, n, n], |ijklm| {
             vec![ijklm[0] as usize, ijklm[2] as usize, ijklm[4] as usize]
         });
 
-        // Choose the loop order here by specifying the order of the loops
-        let loop_order = &mut [
-            &mut i_loop,
-            &mut j_loop,
-            &mut k_loop,
-            &mut l_loop,
-            &mut m_loop,
-        ];
+        let mut loop_order = vec![i_loop, j_loop, k_loop, l_loop, m_loop];
         [ref_3.clone()]
             .iter_mut()
             .for_each(|s| Node::extend_loop_body(loop_order.last_mut().unwrap(), s));
 
         let nested_loops_top = nest_loops(loop_order);
 
-        set_arybase(&nested_loops_top);
-
-        let hist = tracing_ri(&mut nested_loops_top.clone(), 8, 64);
-
-        println!("{}", hist);
+        tracing_ri(&mut nested_loops_top.clone(), 8, 40);
     }
+
     #[test]
     fn test_tracing_ri_1010b_imperfect() {
         let n: usize = 2; // array dim
         let ubound = n as i32; // loop bound
-        let mut i_loop = Node::new_single_loop("i", 0, ubound);
-        let mut j_loop = Node::new_single_loop("j", 0, ubound);
-        let mut k_loop = Node::new_single_loop("k", 0, ubound);
-        let mut l_loop = Node::new_single_loop("l", 0, ubound);
+        let i_loop = Node::new_single_loop("i", 0, ubound);
+        let j_loop = Node::new_single_loop("j", 0, ubound);
+        let k_loop = Node::new_single_loop("k", 0, ubound);
+        let l_loop = Node::new_single_loop("l", 0, ubound);
         let mut m_loop = Node::new_single_loop("m", 0, ubound);
-
 
         let mut ref_o = Node::new_ref("Refo", vec![n, n, n], |ijklm| {
             vec![ijklm[0] as usize, ijklm[2] as usize, ijklm[3] as usize]
         });
         Node::extend_loop_body(&mut m_loop, &mut ref_o);
 
-        #[allow(unused_variables)]
         let ref_i = Node::new_ref("Refi", vec![n, n, n], |ijklm| {
             vec![ijklm[0] as usize, ijklm[2] as usize, ijklm[4] as usize]
         });
 
-        // Choose the loop order here by specifying the order of the loops
-        let loop_order = &mut [
-            &mut i_loop,
-            &mut j_loop,
-            &mut k_loop,
-            &mut l_loop,
-            &mut m_loop,
-        ];
+        let mut loop_order = vec![i_loop, j_loop, k_loop, l_loop, m_loop];
         [ref_i.clone()]
             .iter_mut()
             .for_each(|s| Node::extend_loop_body(loop_order.last_mut().unwrap(), s));
 
-
         let nested_loops_top = nest_loops(loop_order);
 
-        set_arybase(&nested_loops_top);
-
-        let hist = tracing_ri(&mut nested_loops_top.clone(), 8, 8);
-
-        println!("{}", hist);
+        tracing_ri(&mut nested_loops_top.clone(), 8, 8);
     }
+
     #[test]
     fn test_tracing_ri_10b01() {
         let n: usize = 10; // array dim
         let ubound = n as i32; // loop bound
-        let mut i_loop = Node::new_single_loop("i", 0, ubound);
-        let mut j_loop = Node::new_single_loop("j", 0, ubound);
-        let mut k_loop = Node::new_single_loop("k", 0, ubound);
-        let mut l_loop = Node::new_single_loop("l", 0, ubound);
-        let mut m_loop = Node::new_single_loop("m", 0, ubound);
+        let i_loop = Node::new_single_loop("i", 0, ubound);
+        let j_loop = Node::new_single_loop("j", 0, ubound);
+        let k_loop = Node::new_single_loop("k", 0, ubound);
+        let l_loop = Node::new_single_loop("l", 0, ubound);
+        let m_loop = Node::new_single_loop("m", 0, ubound);
 
-        // creating C[i,j] += A[i,k] * B[k,j]\
-        #[allow(unused_variables)]
         let ref_3 = Node::new_ref("Ref3", vec![n, n, n], |ijklm| {
             vec![ijklm[0] as usize, ijklm[4] as usize, ijklm[2] as usize]
         });
 
-        // Choose the loop order here by specifying the order of the loops
-        let loop_order = &mut [
-            &mut i_loop,
-            &mut j_loop,
-            &mut k_loop,
-            &mut l_loop,
-            &mut m_loop,
-        ];
-        // let loop_order = &mut [&mut i_loop, &mut k_loop, &mut j_loop];
-        // let loop_order = &mut [&mut j_loop, &mut k_loop, &mut i_loop];
-        // Add array references to the innermost loop after nesting the loops
+        let mut loop_order = vec![i_loop, j_loop, k_loop, l_loop, m_loop];
         [ref_3.clone()]
             .iter_mut()
             .for_each(|s| Node::extend_loop_body(loop_order.last_mut().unwrap(), s));
 
         let nested_loops_top = nest_loops(loop_order);
 
-        set_arybase(&nested_loops_top);
-
-        let hist = tracing_ri(&mut nested_loops_top.clone(), 8, 64);
-
-        println!("{}", hist);
+        tracing_ri(&mut nested_loops_top.clone(), 8, 8);
     }
+
     #[test]
     fn test_tracing_ri_b0101() {
-        let n: usize = 5; // array dim
+        let n: usize = 10; // array dim
         let ubound = n as i32; // loop bound
-        let mut i_loop = Node::new_single_loop("i", 0, ubound);
-        let mut j_loop = Node::new_single_loop("j", 0, ubound);
-        let mut k_loop = Node::new_single_loop("k", 0, ubound);
-        let mut l_loop = Node::new_single_loop("l", 0, ubound);
-        let mut m_loop = Node::new_single_loop("m", 0, ubound);
+        let i_loop = Node::new_single_loop("i", 0, ubound);
+        let j_loop = Node::new_single_loop("j", 0, ubound);
+        let k_loop = Node::new_single_loop("k", 0, ubound);
+        let l_loop = Node::new_single_loop("l", 0, ubound);
+        let m_loop = Node::new_single_loop("m", 0, ubound);
 
-        // creating C[i,j] += A[i,k] * B[k,j]\
-        #[allow(unused_variables)]
         let ref_3 = Node::new_ref("Ref3", vec![n, n, n], |ijklm| {
             vec![ijklm[2] as usize, ijklm[4] as usize, ijklm[0] as usize]
         });
 
-        // Choose the loop order here by specifying the order of the loops
-        let loop_order = &mut [
-            &mut i_loop,
-            &mut j_loop,
-            &mut k_loop,
-            &mut l_loop,
-            &mut m_loop,
-        ];
+        let mut loop_order = vec![i_loop, j_loop, k_loop, l_loop, m_loop];
         [ref_3.clone()]
             .iter_mut()
             .for_each(|s| Node::extend_loop_body(loop_order.last_mut().unwrap(), s));
 
         let nested_loops_top = nest_loops(loop_order);
 
-        set_arybase(&nested_loops_top);
-
-        let hist = tracing_ri(&mut nested_loops_top.clone(), 8, 64);
-
-        println!("{}", hist);
+        tracing_ri(&mut nested_loops_top.clone(), 8, 40);
     }
+
     #[test]
     fn test_tracing_ri4() {
         let n: usize = 10; // array dim
         let ubound = n as i32; // loop bound
-        let mut i_loop = Node::new_single_loop("i", 0, ubound);
-        let mut j_loop = Node::new_single_loop("j", 0, ubound);
-        let mut k_loop = Node::new_single_loop("k", 0, ubound);
-        let mut l_loop = Node::new_single_loop("l", 0, ubound);
-        let mut m_loop = Node::new_single_loop("m", 0, ubound);
-        let mut n_loop = Node::new_single_loop("n", 0, ubound);
-        let mut o_loop = Node::new_single_loop("o", 0, ubound);
+        let i_loop = Node::new_single_loop("i", 0, ubound);
+        let j_loop = Node::new_single_loop("j", 0, ubound);
+        let k_loop = Node::new_single_loop("k", 0, ubound);
+        let l_loop = Node::new_single_loop("l", 0, ubound);
+        let m_loop = Node::new_single_loop("m", 0, ubound);
+        let n_loop = Node::new_single_loop("n", 0, ubound);
+        let o_loop = Node::new_single_loop("o", 0, ubound);
 
-        // creating C[i,j] += A[i,k] * B[k,j]\
-        #[allow(unused_variables)]
         let ref_3 = Node::new_ref("Ref3", vec![n, n, n, n], |ijklm| {
             vec![
                 ijklm[0] as usize,
@@ -294,88 +282,38 @@ mod tests {
             ]
         });
 
-        // Choose the loop order here by specifying the order of the loops
-        let loop_order = &mut [
-            &mut i_loop,
-            &mut j_loop,
-            &mut k_loop,
-            &mut l_loop,
-            &mut m_loop,
-            &mut n_loop,
-            &mut o_loop,
-        ];
-        // let loop_order = &mut [&mut i_loop, &mut k_loop, &mut j_loop];
-        // let loop_order = &mut [&mut j_loop, &mut k_loop, &mut i_loop];
-        // Add array references to the innermost loop after nesting the loops
+        let mut loop_order = vec![i_loop, j_loop, k_loop, l_loop, m_loop, n_loop, o_loop];
         [ref_3.clone()]
             .iter_mut()
             .for_each(|s| Node::extend_loop_body(loop_order.last_mut().unwrap(), s));
 
         let nested_loops_top = nest_loops(loop_order);
 
-        // let n: usize = 100; // array dim
-        // let node = Node::new_ref("C", vec![n, n], |ijk| {
-        //     vec![ijk[0] as usize, ijk[1] as usize]
-        // });
-        set_arybase(&nested_loops_top);
-
-        let hist = tracing_ri(&mut nested_loops_top.clone(), 8, 64);
-
-        // Assert the expected result
-        // Replace with your own expected result
-        println!("{}", hist);
-        // assert_eq!(hist, Hist::new());
+        tracing_ri(&mut nested_loops_top.clone(), 8, 40);
     }
 
     #[test]
     fn test_tracing_ri_100101() {
-        let n: usize = 10; // array dim
+        let n: usize = 16; // array dim
         let ubound = n as i32; // loop bound
-        let mut i_loop = Node::new_single_loop("i", 0, ubound);
-        let mut j_loop = Node::new_single_loop("j", 0, ubound);
-        let mut k_loop = Node::new_single_loop("k", 0, ubound);
-        let mut l_loop = Node::new_single_loop("l", 0, ubound);
-        let mut m_loop = Node::new_single_loop("m", 0, ubound);
-        let mut n_loop = Node::new_single_loop("n", 0, ubound);
+        let i_loop = Node::new_single_loop("i", 0, ubound);
+        let j_loop = Node::new_single_loop("j", 0, ubound);
+        let k_loop = Node::new_single_loop("k", 0, ubound);
+        let l_loop = Node::new_single_loop("l", 0, ubound);
+        let m_loop = Node::new_single_loop("m", 0, ubound);
+        let n_loop = Node::new_single_loop("n", 0, ubound);
 
-        // creating C[i,j] += A[i,k] * B[k,j]\
-        #[allow(unused_variables)]
         let ref_3 = Node::new_ref("Ref3", vec![n, n, n], |ijklm| {
             vec![ijklm[0] as usize, ijklm[3] as usize, ijklm[5] as usize]
         });
 
-        // Choose the loop order here by specifying the order of the loops
-        let loop_order = &mut [
-            &mut i_loop,
-            &mut j_loop,
-            &mut k_loop,
-            &mut l_loop,
-            &mut m_loop,
-            &mut n_loop,
-        ];
-        // let loop_order = &mut [&mut i_loop, &mut k_loop, &mut j_loop];
-        // let loop_order = &mut [&mut j_loop, &mut k_loop, &mut i_loop];
-        // Add array references to the innermost loop after nesting the loops
+        let mut loop_order = vec![i_loop, j_loop, k_loop, l_loop, m_loop, n_loop];
         [ref_3.clone()]
             .iter_mut()
             .for_each(|s| Node::extend_loop_body(loop_order.last_mut().unwrap(), s));
 
         let nested_loops_top = nest_loops(loop_order);
 
-        // let n: usize = 100; // array dim
-        // let node = Node::new_ref("C", vec![n, n], |ijk| {
-        //     vec![ijk[0] as usize, ijk[1] as usize]
-        // });
-        set_arybase(&nested_loops_top);
-
-        let hist = tracing_ri(&mut nested_loops_top.clone(), 8, 64);
-
-        // Assert the expected result
-        // Replace with your own expected result
-        println!("{}", hist);
-        // assert_eq!(hist, Hist::new());
+        tracing_ri(&mut nested_loops_top.clone(), 8, 64);
     }
-
-
-     */
 }
