@@ -82,6 +82,53 @@ fn calculate_reuse_intervals(
 }
 
 #[allow(dead_code)]
+fn access_matrix(arr_ref_stmt: &mut AryRef, loops: Vec<String>) -> Vec<Vec<u8>> {
+    let mut matrix: Vec<Vec<u8>> = Vec::new();
+    for i in loops {
+        let mut dim: Vec<u8> = Vec::with_capacity(arr_ref_stmt.indices.len());
+        for j in arr_ref_stmt.indices.clone() {
+            if j == i {
+                dim.push(1);
+                //print!("\n{j} and {i}\n");
+            } else {
+                dim.push(0);
+            }
+        }
+        matrix.push(dim);
+    }
+    //print!("{:?}\n\n", matrix);
+    matrix
+}
+
+#[allow(dead_code)]
+fn matrix_production(node: &mut Rc<Node>, loops: &mut Vec<String>) -> Vec<Vec<Vec<u8>>> {
+    let node = unsafe { Rc::get_mut_unchecked(node) };
+    let mut matrix: Vec<Vec<Vec<u8>>> = Vec::new();
+    match &mut node.stmt {
+        Stmt::Ref(arr_ref_stmt) => {
+            // call some other function which returns Vec<Vec<u8>> which is then pushed to matrix
+            matrix.push(access_matrix(arr_ref_stmt, loops.to_vec()));
+            //return matrix;
+            //print!("MATRIX TEST {:?}\n\n", matrix);
+        }
+        Stmt::Loop(loop_stmt) => {
+            loops.push(loop_stmt.iv.clone());
+            for child in &mut loop_stmt.body {
+                matrix.extend(matrix_production(child, loops));
+            }
+        }
+        Stmt::Block(block_stmt) => {
+            for child in block_stmt {
+                matrix.extend(matrix_production(child, loops));
+            }
+        }
+        _ => {}
+    }
+
+    matrix
+}
+
+#[allow(dead_code)]
 /// Determine reuse intervals based on the prompt's criteria
 fn determine_reuse_intervals(
     arr_ref_stmt: &mut AryRef,
@@ -136,6 +183,73 @@ fn determine_reuse_intervals(
     ri_values
 }
 
+#[allow(dead_code)]
+fn find_locality_position(matrix: Vec<Vec<u8>>) -> i32 {
+    let mut locality_position: i32 = -1;
+    for (i, vec) in matrix.iter().enumerate() {
+        if let Some(&last) = vec.last() {
+            if last == 1 {
+                locality_position = i as i32;
+            }
+        }
+    }
+
+    locality_position
+}
+
+#[allow(dead_code)]
+fn generalized_determine_reuse_intervals(matrixes: Vec<Vec<Vec<u8>>>, references: Vec<&str>) {
+    for (ref_index, reference) in references.iter().enumerate() {
+        let access_vector: Vec<u8> = matrixes[ref_index]
+            .iter()
+            .map(|dim| if dim.iter().any(|&x| x == 1) { 1 } else { 0 })
+            .collect();
+
+        let locality_position: i32 = find_locality_position(matrixes[ref_index].clone());
+
+        println!("{reference} ri probability distribution:");
+        println!("{:?}", access_vector);
+        let constant: usize = references.len();
+        let mut _curr: String;
+        let mut prior: String = String::from("");
+        let mut zero_count: usize = access_vector.iter().filter(|&&x| x == 0).count();
+        for loop_index in 0..access_vector.len() {
+            if (access_vector[loop_index] == 0 || loop_index as i32 == locality_position)
+                & ((access_vector.len() == loop_index + 1)
+                    || ((access_vector.len() != loop_index + 1)
+                        & (access_vector[loop_index + 1] == 1)))
+            {
+                let curr = match loop_index as i32 {
+                    x if x == locality_position => prior.replace('b', ""),
+                    x if x > locality_position => {
+                        zero_count -= 1;
+                        let mut prob = String::from("1/n^");
+                        prob.push_str(&zero_count.to_string());
+                        prob
+                    }
+                    _ => {
+                        zero_count -= 1;
+                        let mut prob = String::from("1/b*n^");
+                        prob.push_str(&zero_count.to_string());
+                        prob
+                    }
+                };
+
+                let power: usize = access_vector.len() - loop_index - 1;
+
+                if prior.is_empty() {
+                    println!("{constant}n^{power}: {curr}");
+                } else {
+                    println!("{constant}n^{power}: {curr} - {prior}");
+                }
+                prior = curr;
+            }
+        }
+
+        println!();
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use dace::arybase::set_arybase;
@@ -147,6 +261,54 @@ mod tests {
     use super::*;
 
     #[test]
+    fn higer_dim_loop_test() {
+        let n: usize = 10; // array dim
+        let ubound = n as i32; // loop bound
+                               //let inf_loop = Node::new_single_loop("inf", 0, ubound);
+        let i_loop = Node::new_single_loop("i", 0, ubound);
+        let j_loop = Node::new_single_loop("j", 0, ubound);
+        let k_loop = Node::new_single_loop("k", 0, ubound);
+        let l_loop = Node::new_single_loop("l", 0, ubound);
+        let m_loop = Node::new_single_loop("m", 0, ubound);
+        let n_loop = Node::new_single_loop("n", 0, ubound);
+
+        // creating C[i,j] += A[i,k] * B[k,j]
+        // also D[j,l,n] += E[j,l,l] * F[i,j,m]
+        let ref_c = dace::a_ref("C", vec![n, n], vec!["i", "j"]);
+        let ref_a = dace::a_ref("A", vec![n, n], vec!["i", "k"]);
+        let ref_b = dace::a_ref("B", vec![n, n], vec!["k", "j"]);
+
+        let ref_d = dace::a_ref("D", vec![n, n, n], vec!["j", "l", "n"]);
+        let ref_e = dace::a_ref("E", vec![n, n, n], vec!["j", "l", "l"]);
+        let ref_f = dace::a_ref("F", vec![n, n, n], vec!["i", "j", "m"]);
+
+        // Choose the loop order here by specifying the order of the loops
+        // let loop_order = &mut [&mut i_loop, &mut j_loop, &mut k_loop];
+        // let loop_order = &mut [&mut i_loop, &mut k_loop, &mut j_loop];
+        // let mut loop_order = vec![inf_loop, i_loop, j_loop, k_loop, l_loop, m_loop, n_loop];
+        let mut loop_order = vec![i_loop, j_loop, k_loop, l_loop, m_loop, n_loop];
+
+        // Add array references to the innermost loop after nesting the loops
+        [ref_c, ref_a, ref_b, ref_d, ref_e, ref_f]
+            .iter_mut()
+            .for_each(|s| Node::extend_loop_body(loop_order.last_mut().unwrap(), s));
+
+        //the loops which were orignally seperate are not coalessed into eachother so that they are acutally nested
+        let mut nested_loops_top: Rc<Node> = dace::nest_loops(loop_order);
+        let references: Vec<&str> = vec!["C", "A", "B", "D", "E", "F"];
+
+        // rank assignment for loops
+        dace::assign_ranks(&mut nested_loops_top, 0);
+        // loop matrix is found where for each array access we store essentially a 2d
+        // array by dimension and if a given loop has an influnce on a respective dimension
+        let loop_matrixes: Vec<Vec<Vec<u8>>> =
+            matrix_production(&mut nested_loops_top, &mut Vec::new());
+        print!("{:?}\n\n", loop_matrixes);
+        generalized_determine_reuse_intervals(loop_matrixes, references);
+        //ri output
+    }
+
+    #[test]
     fn matmul() {
         let n: usize = 10; // array dim
         let ubound = n as i32; // loop bound
@@ -155,20 +317,14 @@ mod tests {
         let k_loop = Node::new_single_loop("k", 0, ubound);
 
         // creating C[i,j] += A[i,k] * B[k,j]
-        let ref_c = Node::new_ref("C", vec![n, n], |ijk| {
-            vec![ijk[0] as usize, ijk[1] as usize]
-        });
-        let ref_a = Node::new_ref("A", vec![n, n], |ijk| {
-            vec![ijk[0] as usize, ijk[2] as usize]
-        });
-        let ref_b = Node::new_ref("B", vec![n, n], |ijk| {
-            vec![ijk[2] as usize, ijk[1] as usize]
-        });
+        let ref_c = dace::a_ref("C", vec![n, n], vec!["i", "j"]);
+        let ref_a = dace::a_ref("A", vec![n, n], vec!["i", "k"]);
+        let ref_b = dace::a_ref("B", vec![n, n], vec!["k", "j"]);
 
         // Choose the loop order here by specifying the order of the loops
-        // let loop_order = &mut [&mut i_loop, &mut j_loop, &mut k_loop];
+        //let mut loop_order = &mut [&mut i_loop, &mut j_loop, &mut k_loop];
         // let loop_order = &mut [&mut i_loop, &mut k_loop, &mut j_loop];
-        let mut loop_order = vec![j_loop, k_loop, i_loop];
+        let mut loop_order = vec![i_loop, j_loop, k_loop];
         // Add array references to the innermost loop after nesting the loops
         [ref_c, ref_a, ref_b]
             .iter_mut()
@@ -176,16 +332,26 @@ mod tests {
 
         let mut nested_loops_top = dace::nest_loops(loop_order);
 
-        let arr_refs = count_arr_refs(&nested_loops_top);
+        //let arr_refs = count_arr_refs(&nested_loops_top);
 
-        let (tbl, _size) = set_arybase(&mut nested_loops_top);
-        println!("{:?}", tbl);
+        // let (tbl, _size) = set_arybase(&mut nested_loops_top);
+        // println!("{:?}", tbl);
         dace::assign_ranks(&mut nested_loops_top, 0);
-        calculate_reuse_intervals(&mut nested_loops_top, &mut HashMap::new(), arr_refs);
-        nested_loops_top.print_structure(0);
-        let result = trace(&mut nested_loops_top, LRUStack::new());
-        println!("{}", result.0);
-        print_ri_and_count_arr_refs(&nested_loops_top);
+        let references: Vec<&str> = vec!["C", "A", "B"];
+
+        // loop matrix is found where for each array access we store essentially a 2d
+        // array by dimension and if a given loop has an influnce on a respective dimension
+        let loop_matrixes: Vec<Vec<Vec<u8>>> =
+            matrix_production(&mut nested_loops_top, &mut Vec::new());
+        //print!("{:?}\n\n", loop_matrixes);
+        generalized_determine_reuse_intervals(loop_matrixes, references);
+        //ri output
+
+        // calculate_reuse_intervals(&mut nested_loops_top, &mut HashMap::new(), arr_refs);
+        // nested_loops_top.print_structure(0);
+        // let result = trace(&mut nested_loops_top, LRUStack::new());
+        // println!("{}", result.0);
+        // print_ri_and_count_arr_refs(&nested_loops_top);
     }
 
     #[test]
