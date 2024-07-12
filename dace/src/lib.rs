@@ -285,7 +285,7 @@ pub fn assign_ranks(node: &mut Rc<Node>, current_rank: i32) -> Rc<Node> {
     }
 }
 
-fn insert_node(a_loop: &mut Rc<Node>, node: &mut Rc<Node>) {
+pub fn insert_node(a_loop: &mut Rc<Node>, node: &mut Rc<Node>) {
     Node::extend_loop_body(a_loop, node);
     let node = unsafe { Rc::get_mut_unchecked(node) };
     if let ast::Stmt::Ref(ref_stmt) = &mut node.stmt {
