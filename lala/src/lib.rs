@@ -214,36 +214,45 @@ fn generalized_determine_reuse_intervals(matrixes: Vec<Vec<Vec<u8>>>, references
         let mut prior: String = String::from("");
         let mut zero_count: usize = access_vector.iter().filter(|&&x| x == 0).count();
         for loop_index in 0..access_vector.len() {
-          if (access_vector[loop_index] == 0 || loop_index as i32 == locality_position)
-                & ((access_vector.len() == loop_index + 1)
-                    || ((access_vector.len() != loop_index + 1)
-                        & (access_vector[loop_index + 1] == 1)))
+            if (access_vector.len() == loop_index + 1)
+                || ((access_vector.len() != loop_index + 1) & (access_vector[loop_index + 1] == 1))
             {
+                // if (access_vector[loop_index] == 0 || loop_index as i32 == locality_position)
+                //     & ((access_vector.len() == loop_index + 1)
+                //         || ((access_vector.len() != loop_index + 1)
+                //             & (access_vector[loop_index + 1] == 1)))
+                // {
+                let mut ri_occurs: bool = true;
                 let curr = match loop_index as i32 {
                     x if x == locality_position => prior.replace('b', ""),
-                    x if x > locality_position => {
+                    x if (x > locality_position) & (access_vector[loop_index] == 0) => {
                         zero_count -= 1;
                         let mut prob = String::from("1/n^");
                         prob.push_str(&zero_count.to_string());
                         prob
                     }
-                    _ => {
+                    x if (x < locality_position) & (access_vector[loop_index] == 0) => {
                         zero_count -= 1;
                         let mut prob = String::from("1/b*n^");
                         prob.push_str(&zero_count.to_string());
                         prob
                     }
-
+                    _ => {
+                        ri_occurs = false;
+                        String::from("")
+                    }
                 };
 
-                let power: usize = access_vector.len() - loop_index - 1;
+                if ri_occurs {
+                    let power: usize = access_vector.len() - loop_index - 1;
 
-                if prior.is_empty() {
-                    println!("{constant}n^{power}: {curr}");
-                } else {
-                    println!("{constant}n^{power}: {curr} - {prior}");
+                    if prior.is_empty() {
+                        println!("{constant}n^{power}: {curr}");
+                    } else {
+                        println!("{constant}n^{power}: {curr} - {prior}");
+                    }
+                    prior = curr;
                 }
-                prior = curr;
             }
         }
 
