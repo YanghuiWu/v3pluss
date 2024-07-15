@@ -2,7 +2,7 @@
 #![allow(internal_features)] // to hide the warning of using unstable features for the line below
 #![feature(core_intrinsics)]
 
-use std::rc::Rc;
+use std::{collections::HashMap, rc::Rc};
 
 use crate::ast::{Node, Stmt};
 
@@ -39,22 +39,19 @@ pub fn create_loops(loop_names: &[&str], lb: i32, ub: i32) -> Vec<Rc<Node>> {
         .collect()
 }
 
-fn generate_sub(indices: Vec<String>, loops: Vec<String>) -> Box<ast::DynFunc> {
+fn generate_sub(indices: &[String], loops: &[String]) -> Box<ast::DynFunc> {
+    //println!("indices: {:?}", indices);
+    //println!("loops: {:?}", loops);
+
+    let index_map = loops.iter().enumerate().fold(HashMap::new(), |mut acc, (index, value)| {
+        acc.insert(value, index);
+        acc
+    });
+    let rank_indices: Vec<usize> = indices.iter().map(move |loop_index| 
+        index_map.get(loop_index).unwrap().clone()
+    ).collect();
+
     Box::new(move |ivec: &[i32]| {
-        // println!("indices: {:?}", indices);
-        // println!("loops: {:?}", loops);
-        let mut rank_indices = vec![];
-        for idx in indices.iter() {
-            if let Some(pos) = loops.iter().position(|i| *i == *idx) {
-                rank_indices.push(pos);
-                // println!("pos: {:?}", pos);
-            } else {
-                panic!(
-                    "Index '{}' not found in loop indices: {:?}\nCheck where you insert the ref.",
-                    idx, loops
-                );
-            }
-        }
         rank_indices.iter().map(|&pos| ivec[pos] as usize).collect()
     })
 }
@@ -290,8 +287,8 @@ pub fn insert_node(a_loop: &mut Rc<Node>, node: &mut Rc<Node>) {
     let node = unsafe { Rc::get_mut_unchecked(node) };
     if let ast::Stmt::Ref(ref_stmt) = &mut node.stmt {
         ref_stmt.sub = generate_sub(
-            ref_stmt.indices.clone(),
-            get_loops_indices(Rc::clone(a_loop)),
+            &ref_stmt.indices,
+            &get_loops_indices(Rc::clone(a_loop)),
         );
     }
 }
