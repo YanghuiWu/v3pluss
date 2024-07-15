@@ -8,7 +8,7 @@ use dace::ast::Node;
 use dace::ast::Stmt;
 use dace::{
     a_ref, branch_node, create_loops, insert_at, insert_at_innermost, loop_body, loop_node,
-    nested_loops,
+    nested_loops, generate_subscript
 };
 
 pub fn lu(n: usize) -> Rc<Node> {
@@ -27,11 +27,14 @@ pub fn lu(n: usize) -> Rc<Node> {
 
     let ubound = n as i32;
 
+    let loop_indices = vec!["i", "j", "k"];
+    let bounds = |loop_index| generate_subscript(&loop_indices, loop_index);
+    
     let mut i_loop_ref = Node::new_single_loop("i", 0, ubound);
-    let mut j_loop_lower_ref = loop_node!("j", 0 => move |ijk:&[i32]| ijk[0]);
-    let mut k_loop_ref_j = loop_node!("k", 0 => move |ijk:&[i32]| ijk[1]);
-    let mut j_loop_upper_ref = loop_node!("j", move |ijk:&[i32]| ijk[0] => ubound);
-    let mut k_loop_ref_i = loop_node!("k", 0 => move |ijk:&[i32]| ijk[0]);
+    let mut j_loop_lower_ref = loop_node!("j", 0 => bounds("i"));
+    let mut k_loop_ref_j = loop_node!("k", 0 => bounds("k"));
+    let mut j_loop_upper_ref = loop_node!("j", bounds("i") => ubound);
+    let mut k_loop_ref_i = loop_node!("k", 0 => bounds("i"));
 
     loop_body(&[&mut i_loop_ref, &mut j_loop_lower_ref, &mut k_loop_ref_j]);
 

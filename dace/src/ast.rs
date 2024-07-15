@@ -5,6 +5,7 @@ use std::rc::{Rc, Weak};
 pub type IterVec = Vec<i32>;
 /// Type alias for the array access indices, with usize elements.
 pub type AryAcc = Vec<usize>;
+pub(crate) type DynamicBoundFunction = dyn for<'a> Fn(&'a [i32]) -> i32;
 pub(crate) type DynFunc = dyn for<'a> Fn(&'a [i32]) -> Vec<usize>;
 
 /// Each loop and statement is a node in a loop tree.
@@ -59,7 +60,7 @@ pub struct LoopStmt {
 pub enum LoopBound {
     Fixed(i32),
     #[allow(clippy::type_complexity)]
-    Dynamic(Box<dyn Fn(&[i32]) -> i32>),
+    Dynamic(Box<DynamicBoundFunction>),
     Affine {
         a: Vec<i32>,
         b: i32,

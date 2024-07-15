@@ -39,6 +39,17 @@ pub fn create_loops(loop_names: &[&str], lb: i32, ub: i32) -> Vec<Rc<Node>> {
         .collect()
 }
 
+pub fn generate_subscript<'a>(indices: &'a [&str], loop_index: &str) -> Box<ast::DynamicBoundFunction> {
+    indices.iter()
+        .enumerate()
+        .filter(|(_, value)| {
+            loop_index == **value
+        })
+        .map(|(index, _value)| {
+            Box::new(move |ivec: &[i32]| ivec[index] as i32)
+        }).next().expect("loop_index does not belong in indices!")
+}
+
 fn generate_sub(indices: &[String], loops: &[String]) -> Box<ast::DynFunc> {
     //println!("indices: {:?}", indices);
     //println!("loops: {:?}", loops);
