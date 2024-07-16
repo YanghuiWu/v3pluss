@@ -7,8 +7,8 @@ use std::rc::Rc;
 use dace::ast::Node;
 use dace::ast::Stmt;
 use dace::{
-    a_ref, branch_node, create_loops, insert_at, insert_at_innermost, loop_body, loop_node,
-    nested_loops, generate_subscript
+    a_ref, branch_node, create_loops, generate_subscript, insert_at, insert_at_innermost,
+    loop_body, loop_node, nested_loops,
 };
 
 pub fn lu(n: usize) -> Rc<Node> {
@@ -29,7 +29,7 @@ pub fn lu(n: usize) -> Rc<Node> {
 
     let loop_indices = vec!["i", "j", "k"];
     let bounds = |loop_index| generate_subscript(&loop_indices, loop_index);
-    
+
     let mut i_loop_ref = Node::new_single_loop("i", 0, ubound);
     let mut j_loop_lower_ref = loop_node!("j", 0 => bounds("i"));
     let mut k_loop_ref_j = loop_node!("k", 0 => bounds("k"));

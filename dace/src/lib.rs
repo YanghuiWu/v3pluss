@@ -39,32 +39,33 @@ pub fn create_loops(loop_names: &[&str], lb: i32, ub: i32) -> Vec<Rc<Node>> {
         .collect()
 }
 
-pub fn generate_subscript<'a>(indices: &'a [&str], loop_index: &str) -> Box<ast::DynamicBoundFunction> {
-    indices.iter()
+pub fn generate_subscript(indices: &[&str], loop_index: &str) -> Box<ast::DynamicBoundFunction> {
+    indices
+        .iter()
         .enumerate()
-        .filter(|(_, value)| {
-            loop_index == **value
-        })
-        .map(|(index, _value)| {
-            Box::new(move |ivec: &[i32]| ivec[index] as i32)
-        }).next().expect("loop_index does not belong in indices!")
+        .filter(|(_, value)| loop_index == **value)
+        .map(|(index, _value)| Box::new(move |ivec: &[i32]| ivec[index]))
+        .next()
+        .expect("loop_index does not belong in indices!")
 }
 
 fn generate_sub(indices: &[String], loops: &[String]) -> Box<ast::DynFunc> {
     //println!("indices: {:?}", indices);
     //println!("loops: {:?}", loops);
 
-    let index_map = loops.iter().enumerate().fold(HashMap::new(), |mut acc, (index, value)| {
-        acc.insert(value, index);
-        acc
-    });
-    let rank_indices: Vec<usize> = indices.iter().map(move |loop_index| 
-        index_map.get(loop_index).unwrap().clone()
-    ).collect();
+    let index_map = loops
+        .iter()
+        .enumerate()
+        .fold(HashMap::new(), |mut acc, (index, value)| {
+            acc.insert(value, index);
+            acc
+        });
+    let rank_indices: Vec<usize> = indices
+        .iter()
+        .map(move |loop_index| *index_map.get(loop_index).unwrap())
+        .collect();
 
-    Box::new(move |ivec: &[i32]| {
-        rank_indices.iter().map(|&pos| ivec[pos] as usize).collect()
-    })
+    Box::new(move |ivec: &[i32]| rank_indices.iter().map(|&pos| ivec[pos] as usize).collect())
 }
 
 // Get the loop indices for a given node.
@@ -297,9 +298,6 @@ pub fn insert_node(a_loop: &mut Rc<Node>, node: &mut Rc<Node>) {
     Node::extend_loop_body(a_loop, node);
     let node = unsafe { Rc::get_mut_unchecked(node) };
     if let ast::Stmt::Ref(ref_stmt) = &mut node.stmt {
-        ref_stmt.sub = generate_sub(
-            &ref_stmt.indices,
-            &get_loops_indices(Rc::clone(a_loop)),
-        );
+        ref_stmt.sub = generate_sub(&ref_stmt.indices, &get_loops_indices(Rc::clone(a_loop)));
     }
 }
