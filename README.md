@@ -25,6 +25,7 @@ pre-commit install
 
 In order to automatically format, run `cargo fmt --all`. To fix certain possible Rust issues, run `cargo clippy --fix`.
 
+```
 dace
 ├─ .git
 ├─ .gitattributes
