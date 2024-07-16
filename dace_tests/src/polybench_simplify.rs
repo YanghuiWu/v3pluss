@@ -305,12 +305,9 @@ pub fn gemm(n: usize) -> Rc<Node> {
 
     let ubound = n as i32;
 
-    let i_j_k_loops = create_loops(loop_indices, 0, ubound);
-    let (mut i_loop_ref, mut j_loop_ref, mut k_loop_ref) = (
-        i_j_k_loops[0].clone(),
-        i_j_k_loops[1].clone(),
-        i_j_k_loops[2].clone(),
-    );
+    let mut i_loop_ref = loop_node!("i", 0 => ubound);
+    let mut j_loop_ref = loop_node!("j", 0 => ubound);
+    let mut k_loop_ref = loop_node!("k", 0 => ubound);
 
     insert_at(&mut j_loop_ref, &mut i_loop_ref, "i");
 
