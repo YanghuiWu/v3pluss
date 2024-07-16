@@ -264,7 +264,7 @@ fn generalized_determine_reuse_intervals(matrixes: Vec<Vec<Vec<u8>>>, references
 mod tests {
 
     use dace::ast::Node;
-    use dace_tests::polybench;
+    use dace_tests::polybench_simplify;
 
     use super::*;
 
@@ -364,14 +364,14 @@ mod tests {
 
     #[test]
     fn test_poly() {
-        // let mut bench = polybench::mvt(1024); // fixed the issue with the mvt with single array
-        let _bench = polybench::stencil(1024);
-        // let mut bench = polybench::seidel_2d(10, 10); // fixed the issue with self define loop indices
-        // let mut bench = polybench::gemver(1024); // fixed the issue with the mvt with single array
-        // let mut bench = polybench::syrk(256, 256);
+        // let mut bench = polybench_simplify::mvt(1024); // fixed the issue with the mvt with single array
+        let _bench = polybench_simplify::stencil(1024);
+        // let mut bench = polybench_simplify::seidel_2d(10, 10); // fixed the issue with self define loop indices
+        // let mut bench = polybench_simplify::gemver(1024); // fixed the issue with the mvt with single array
+        // let mut bench = polybench_simplify::syrk(256, 256);
 
-        // let mut bench = polybench::trmm_trace(1024, 1024);
-        let mut bench = polybench::symm(1024, 1024);
+        // let mut bench = polybench_simplify::trmm_trace(1024, 1024);
+        let mut bench = polybench_simplify::symm(1024, 1024);
         dace::assign_ranks(&mut bench, 0);
         bench.print_structure(0);
         let arr_refs = count_arr_refs(&bench);

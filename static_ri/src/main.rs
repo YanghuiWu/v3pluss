@@ -6,12 +6,12 @@ use std::intrinsics::ceilf32;
 use std::ops::Range;
 use std::{collections::HashMap, time::Instant};
 
+use dace_tests::polybench_simplify;
 use rand::prelude::Distribution;
 use tracing::debug;
 use tracing_subscriber::EnvFilter;
 
 use dace::ast::{LoopBound, LoopStmt, Node, Stmt};
-use dace_tests::polybench;
 use static_ri::tracing_ri;
 
 mod test;
@@ -21,7 +21,7 @@ fn main() {
         .with_env_filter(EnvFilter::from_env("LOG_LEVEL"))
         .init();
     let mut wrapping_loop = Vec::new();
-    let mut trace = polybench::gemm(128);
+    let mut trace = polybench_simplify::gemm(128);
     let mut ref_counter = 0;
     let start = Instant::now();
     let _hist = tracing_ri(&mut trace, 8, 64);
