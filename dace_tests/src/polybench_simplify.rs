@@ -164,11 +164,14 @@ pub fn mvt(n: usize) -> Rc<Node> {
 }
 
 pub fn trisolv(n: usize) -> Rc<Node> {
+    let loop_indices = vec!["i", "j", "k"];
+    let bounds = |loop_index| generate_subscript(&loop_indices, loop_index);
+
     // n : usize is size of array
     let ubound = n as i32;
 
     let mut i_loop_ref = Node::new_single_loop("i", 0, ubound);
-    let mut j_loop_ref = Node::new_single_loop_dyn_ub("j", 0, move |i| i[0]);
+    let mut j_loop_ref = Node::new_single_loop_dyn_ub("j", 0, bounds("i"));
 
     // creating x[i] = b[i];
     let s_ref_x1 = a_ref("x", vec![n], vec!["i"]);
@@ -240,14 +243,17 @@ pub fn syrk(n: usize, m: usize) -> Rc<Node> {
 }
 
 pub fn syr2d(n: usize, m: usize) -> Rc<Node> {
+    let loop_indices = vec!["i", "j", "k"];
+    let bounds = |loop_index| generate_subscript(&loop_indices, loop_index);
+
     // n,m are array dimensions
     let ubound1 = n as i32;
     let ubound2 = m as i32;
 
     let mut i_loop_ref = Node::new_single_loop("i", 0, ubound1);
-    let mut j_loop_ref = loop_node!("j", 0 => |i : &[i32]| i[0]);
+    let mut j_loop_ref = loop_node!("j", 0 => bounds("i"));
     let mut k_loop_ref = Node::new_single_loop("k", 0, ubound2);
-    let mut l_loop_ref = loop_node!("l", 0 => |i : &[i32]| i[0]);
+    let mut l_loop_ref = loop_node!("l", 0 => bounds("i"));
 
     insert_at(&mut j_loop_ref, &mut i_loop_ref, "i");
 
@@ -436,12 +442,15 @@ pub fn _2mm(NI: usize, NJ: usize, NK: usize, NL: usize) -> Rc<Node> {
 }
 
 pub fn cholesky(n: usize) -> Rc<Node> {
+    let loop_indices = vec!["i", "j", "k"];
+    let bounds = |loop_index| generate_subscript(&loop_indices, loop_index);
+
     let ubound = n as i32;
 
     let mut i_loop_ref = Node::new_single_loop("i", 0, ubound);
-    let mut j_loop_ref = Node::new_single_loop_dyn_ub("j", 0, move |i| i[0]);
-    let mut k1_loop_ref = Node::new_single_loop_dyn_ub("k", 0, move |j| j[0]);
-    let mut k2_loop_ref = Node::new_single_loop_dyn_ub("k", 0, move |i| i[0]);
+    let mut j_loop_ref = Node::new_single_loop_dyn_ub("j", 0, bounds("i"));
+    let mut k1_loop_ref = Node::new_single_loop_dyn_ub("k", 0, bounds("i"));
+    let mut k2_loop_ref = Node::new_single_loop_dyn_ub("k", 0, bounds("i"));
 
     loop_body(&[&mut i_loop_ref, &mut j_loop_ref, &mut k1_loop_ref]);
 

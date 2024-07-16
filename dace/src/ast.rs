@@ -298,14 +298,11 @@ impl Node {
         )
     }
 
-    pub fn new_single_loop_dyn_ub<F>(ivar: &str, low: i32, ub: F) -> Rc<Self>
-    where
-        for<'a> F: Fn(&'a [i32]) -> i32 + 'static,
-    {
+    pub fn new_single_loop_dyn_ub(ivar: &str, low: i32, ub: Box<DynamicBoundFunction>) -> Rc<Self> {
         Self::new_loop(
             ivar,
             LoopBound::Fixed(low),
-            LoopBound::Dynamic(Box::new(ub)),
+            LoopBound::Dynamic(ub),
             |i, ub| i < ub,
             |i| i + 1,
         )
@@ -501,7 +498,7 @@ mod tests {
         //     for j in 0 .. n - i
         let n: usize = 100; // array dim
         let ubound = n as i32; // loop bound
-        let mut j_loop = Node::new_single_loop_dyn_ub("j", 0, move |i| ubound - i[0]);
+        let mut j_loop = Node::new_single_loop_dyn_ub("j", 0, Box::new(move |i| ubound - i[0]));
         // creating loop i = 0, n
         let mut i_loop = Node::new_single_loop("i", 0, ubound);
         Node::extend_loop_body(&mut i_loop, &mut j_loop);
