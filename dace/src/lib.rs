@@ -49,7 +49,7 @@ pub fn generate_subscript(indices: &[&str], loop_index: &str) -> Box<ast::Dynami
         .expect("loop_index does not belong in indices!")
 }
 
-fn generate_sub(indices: &[String], loops: &[String]) -> Box<ast::DynFunc> {
+pub fn generate_sub(indices: &[String], loops: &[String]) -> Box<ast::DynFunc> {
     //println!("indices: {:?}", indices);
     //println!("loops: {:?}", loops);
 
@@ -65,6 +65,26 @@ fn generate_sub(indices: &[String], loops: &[String]) -> Box<ast::DynFunc> {
         .map(move |loop_index| *index_map.get(loop_index).unwrap())
         .collect();
 
+    Box::new(move |ivec: &[i32]| rank_indices.iter().map(|&pos| ivec[pos] as usize).collect())
+}
+
+pub fn generate_sub_2(indices: &[&str], loops: &[&str]) -> Box<ast::DynFunc> {
+    println!("indices: {:?}", indices);
+    println!("loops: {:?}", loops);
+
+    let index_map = indices
+        .iter()
+        .enumerate()
+        .fold(HashMap::new(), |mut acc, (index, value)| {
+            acc.insert(value, index);
+            acc
+        });
+    println!("index_map: {:?}", index_map);
+    let rank_indices: Vec<usize> = loops
+        .iter()
+        .map(move |loop_index| *index_map.get(loop_index).unwrap())
+        .collect();
+    println!("rank_indices: {:?}", rank_indices);
     Box::new(move |ivec: &[i32]| rank_indices.iter().map(|&pos| ivec[pos] as usize).collect())
 }
 
