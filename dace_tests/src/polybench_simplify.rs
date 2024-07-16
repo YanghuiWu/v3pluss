@@ -743,6 +743,9 @@ pub fn convolution_2d(ni: usize, nj: usize) -> Rc<Node> {
 }
 
 pub fn symm(n: usize, m: usize) -> Rc<Node> {
+    let loop_indices = vec!["i", "j", "k"];
+    let bounds = |loop_index| generate_subscript(&loop_indices, loop_index);
+
     // n : usize is size of array
     let ubound1 = n as i32;
     let ubound2 = m as i32;
@@ -750,7 +753,7 @@ pub fn symm(n: usize, m: usize) -> Rc<Node> {
     // creating loops
     let mut i_loop_ref = Node::new_single_loop("i", 0, ubound2);
     let mut j_loop_ref = Node::new_single_loop("j", 0, ubound1);
-    let mut k_loop_ref = loop_node!("k", 0 => move |i : &[i32]| i[0]);
+    let mut k_loop_ref = loop_node!("k", 0 => bounds("i"));
 
     loop_body(&[&mut i_loop_ref, &mut j_loop_ref, &mut k_loop_ref]);
 
@@ -827,14 +830,17 @@ pub fn seidel_2d(m: usize, n: usize) -> Rc<Node> {
 }
 
 pub fn ludcmp(n: usize) -> Rc<Node> {
+    let loop_indices = vec!["i", "j", "k"];
+    let bounds = |loop_index| generate_subscript(&loop_indices, loop_index);
+
     // n : usize is size of array
     let ubound = n as i32;
 
     let mut i_loop_upper = Node::new_single_loop("i", 0, ubound);
-    let mut j_loop_upper = loop_node!("j", 0 => move |i : &[i32]| i[0]);
-    let mut k_loop_upper = loop_node!("k", 0 => move |j : &[i32]| j[0]);
+    let mut j_loop_upper = loop_node!("j", 0 => bounds("i"));
+    let mut k_loop_upper = loop_node!("k", 0 => bounds("j"));
     let mut j_loop_lower = loop_node!("j", |i : &[i32]| i[0] => move |_: &_| ubound);
-    let mut k_loop_lower = loop_node!("k", 0 => move |i : &[i32]| i[0]);
+    let mut k_loop_lower = loop_node!("k", 0 => bounds("i"));
 
     insert_at(&mut j_loop_upper, &mut i_loop_upper, "i");
 
@@ -884,7 +890,7 @@ pub fn ludcmp(n: usize) -> Rc<Node> {
     insert_at(&mut s_ref_a9, &mut j_loop_lower, "j");
 
     let mut i_loop_middle = Node::new_single_loop("i", 0, ubound);
-    let mut j_loop2 = loop_node!("j", 0 => move |i : &[i32]| i[0]);
+    let mut j_loop2 = loop_node!("j", 0 => bounds("i"));
 
     // creating w = b[i]
     let mut s_ref_b1 = a_ref("b1", vec![n], vec!["i"]);
