@@ -1,0 +1,30 @@
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.0.1
+    hooks:
+      - id: check-byte-order-marker
+      - id: check-case-conflict
+      - id: check-merge-conflict
+      - id: check-yaml
+      - id: mixed-line-ending
+        args:
+          - --fix=no
+      - id: check-added-large-files
+        args:
+          - --maxkb=2048
+      - id: trailing-whitespace
+  - repo: local
+    hooks:
+      - id: rustfmt
+        name: rustfmt
+        description: Check if all files follow the rustfmt style
+        entry: cargo fmt --all -- --check --color always
+        language: system
+        pass_filenames: false
+      - id: clippy
+        name: clippy
+        description: Clippy is a linter tool for Rust that provides recommendations to help you write better Rust code. It is part of the Rust toolchain and offers a large number of lint checks, ranging from style and readability improvements to detecting potential bugs and performance issues.
+        entry: cargo clippy --all-targets -- -D warnings
+        language: system
+        pass_filenames: false
+

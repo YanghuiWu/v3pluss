@@ -64,7 +64,7 @@ mod test {
             .iter_mut()
             .for_each(|s| Node::extend_loop_body(&mut iloop, s));
 
-        let (tbl, size) = set_arybase(&mut iloop);
+        let (tbl, size) = set_arybase(&iloop);
         assert_eq!(tbl.len(), 3);
         // println!("{:?}", tbl);
         assert_eq!(size, n + n * n + n * n * n);

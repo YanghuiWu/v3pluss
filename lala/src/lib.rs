@@ -262,11 +262,9 @@ fn generalized_determine_reuse_intervals(matrixes: Vec<Vec<Vec<u8>>>, references
 
 #[cfg(test)]
 mod tests {
-    use dace::arybase::set_arybase;
+
     use dace::ast::Node;
     use dace_tests::polybench;
-    use static_rd::trace::trace;
-    use static_rd::LRUStack;
 
     use super::*;
 

@@ -171,7 +171,7 @@ mod tests {
     fn test_access3addr_and_tracing() {
         let n: usize = 10; // array dim
         let ubound = n as i32; // loop bound
-        let mut nested_loops_top = dace::nested_loops(&vec!["i", "j", "k"], ubound);
+        let mut nested_loops_top = dace::nested_loops(&["i", "j", "k"], ubound);
 
         let ref_c = dace::a_ref("C", vec![n, n], vec!["i", "j"]);
         let ref_a = dace::a_ref("A", vec![n, n], vec!["i", "k"]);
@@ -201,7 +201,7 @@ mod tests {
                     "{}{:?}={:?}",
                     ary_ref.name,
                     ary_ref.indices,
-                    (ary_ref.sub)(&*ivec)
+                    (ary_ref.sub)(&ivec)
                 );
                 println!(" reside in Cache Line: #{}", result);
 
@@ -241,7 +241,7 @@ mod tests {
         let n: usize = 4; // array dim
         let ubound = n as i32; // loop bound
         let mut nested_loops =
-            dace::nested_loops(&vec!["i", "j", "k", "l", "m", "n", "o", "p"], ubound);
+            dace::nested_loops(&["i", "j", "k", "l", "m", "n", "o", "p"], ubound);
         let mut ref_c = dace::a_ref("c", vec![n, n, n], vec!["i", "l", "p"]);
 
         dace::insert_at(&mut ref_c, &mut nested_loops, "p");
