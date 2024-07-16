@@ -7,8 +7,8 @@ use std::rc::Rc;
 use dace::ast::Node;
 use dace::ast::Stmt;
 use dace::{
-    a_ref, branch_node, create_loops, generate_subscript, insert_at, insert_at_innermost,
-    loop_body, loop_node, nested_loops,
+    a_ref, branch_node, create_loops, generate_sub_2, generate_subscript, insert_at,
+    insert_at_innermost, loop_body, loop_node, nested_loops,
 };
 
 pub fn lu(n: usize) -> Rc<Node> {
@@ -295,19 +295,17 @@ pub fn syr2d(n: usize, m: usize) -> Rc<Node> {
 }
 
 pub fn gemm(n: usize) -> Rc<Node> {
-    let A0 = Node::new_ref("A", vec![n, n], |ijk| {
-        vec![ijk[0] as usize, ijk[2] as usize]
-    });
-    let B0 = Node::new_ref("B", vec![n, n], |ijk| {
-        vec![ijk[2] as usize, ijk[1] as usize]
-    });
-    let C0 = Node::new_ref("C", vec![n, n], |ijk| {
-        vec![ijk[0] as usize, ijk[1] as usize]
-    });
+    let loop_indices = &["i", "j", "k"];
+
+    let ary_sub = |loops| generate_sub_2(loop_indices, loops);
+
+    let A0 = Node::new_ref("A", vec![n, n], ary_sub(&["i", "k"]));
+    let B0 = Node::new_ref("B", vec![n, n], ary_sub(&["k", "j"]));
+    let C0 = Node::new_ref("C", vec![n, n], ary_sub(&["i", "j"]));
 
     let ubound = n as i32;
 
-    let i_j_k_loops = create_loops(&["i", "j", "k"], 0, ubound);
+    let i_j_k_loops = create_loops(loop_indices, 0, ubound);
     let (mut i_loop_ref, mut j_loop_ref, mut k_loop_ref) = (
         i_j_k_loops[0].clone(),
         i_j_k_loops[1].clone(),
@@ -316,16 +314,27 @@ pub fn gemm(n: usize) -> Rc<Node> {
 
     insert_at(&mut j_loop_ref, &mut i_loop_ref, "i");
 
-    for _ in 0..2 {
-        Node::extend_loop_body(&mut j_loop_ref, &mut C0.clone());
-    }
+    loop_body(&[
+        &mut j_loop_ref.clone(),
+        &mut C0.clone(),
+        &mut j_loop_ref.clone(),
+        &mut C0.clone(),
+        &mut j_loop_ref.clone(),
+        &mut C0.clone(),
+    ]);
 
     insert_at(&mut k_loop_ref, &mut j_loop_ref, "j");
 
-    let mut A0_B0_C0_C0 = [A0.clone(), B0.clone(), C0.clone(), C0.clone()];
-    for node in A0_B0_C0_C0.iter_mut() {
-        Node::extend_loop_body(&mut k_loop_ref, node)
-    }
+    loop_body(&[
+        &mut k_loop_ref.clone(),
+        &mut A0.clone(),
+        &mut k_loop_ref.clone(),
+        &mut B0.clone(),
+        &mut k_loop_ref.clone(),
+        &mut C0.clone(),
+        &mut k_loop_ref.clone(),
+        &mut C0.clone(),
+    ]);
 
     i_loop_ref
 }
@@ -483,15 +492,17 @@ pub fn cholesky(n: usize) -> Rc<Node> {
     let s_ref_aik2 = Node::new_ref("a", vec![n, n], |ijk| {
         vec![ijk[0] as usize, ijk[2] as usize]
     });
-    let mut aik2_aik2_aii1_aii1 = [
-        s_ref_aik2.clone(),
-        s_ref_aik2.clone(),
-        s_ref_aii1.clone(),
-        s_ref_aii1.clone(),
-    ];
-    for node in aik2_aik2_aii1_aii1.iter_mut() {
-        Node::extend_loop_body(&mut k2_loop_ref, node);
-    }
+
+    loop_body(&[
+        &mut k2_loop_ref.clone(),
+        &mut s_ref_aik2.clone(),
+        &mut k2_loop_ref.clone(),
+        &mut s_ref_aik2.clone(),
+        &mut k2_loop_ref.clone(),
+        &mut s_ref_aii1.clone(),
+        &mut k2_loop_ref.clone(),
+        &mut s_ref_aii1.clone(),
+    ]);
 
     //create A[i * N + i] = sqrt(A[i * N + i]);
     let mut s_ref_aii2 = a_ref("a", vec![n], vec!["i"]);
