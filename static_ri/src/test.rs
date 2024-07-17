@@ -1,9 +1,17 @@
 #[cfg(test)]
 mod tests {
-
     use dace::ast::Node;
-    use dace::nest_loops;
+    use dace::nest_the_loops;
+    use dace_tests::polybench_simplify;
     use static_ri::tracing_ri;
+
+    #[test]
+    fn test_poly() {
+        let mut tri = polybench_simplify::mvt(1024);
+        assert_eq!(tri.node_count(), 13);
+        tri.print_structure(0);
+        tracing_ri(&mut tri, 8, 8);
+    }
 
     #[test]
     fn test_100b0() {
@@ -25,6 +33,41 @@ mod tests {
         let mut ref_c = dace::squ_ref("c", n, vec!["i", "m", "k"]);
         dace::insert_at_innermost(&mut ref_c, &mut nested_loops);
         nested_loops.print_structure(0);
+
+        tracing_ri(&mut nested_loops, 8, 40);
+    }
+
+    #[test]
+    fn test_tracing_ri_precise_ri() {
+        let n = 10; // array dim
+        let mut nested_loops = dace::nested_loops(&["inf", "i", "j", "k", "l", "m", "n"], n);
+        let mut ref_c = dace::squ_ref("c", n, vec!["i", "m", "l"]);
+        dace::insert_at_innermost(&mut ref_c, &mut nested_loops);
+        nested_loops.print_structure(0);
+
+        tracing_ri(&mut nested_loops, 8, 40);
+    }
+
+    #[test]
+    fn test_p_b10() {
+        let n = 8; // array dim
+
+        let mut nested_loops = dace::nested_loops(&["c", "i", "j", "k"], n);
+        let mut ref_c = dace::squ_ref("c", n, vec!["k", "j"]);
+
+        dace::insert_at_innermost(&mut ref_c, &mut nested_loops);
+
+        tracing_ri(&mut nested_loops, 8, 16);
+    }
+
+    #[test]
+    fn test_1b0() {
+        let n = 10; // array dim
+
+        let mut nested_loops = dace::nested_loops(&["c", "i", "j", "k"], n);
+        let mut ref_c = dace::squ_ref("c", n, vec!["i", "j"]);
+
+        dace::insert_at_innermost(&mut ref_c, &mut nested_loops);
 
         tracing_ri(&mut nested_loops, 8, 40);
     }
@@ -84,7 +127,7 @@ mod tests {
             .iter_mut()
             .for_each(|s| Node::extend_loop_body(loop_order.last_mut().unwrap(), s));
 
-        let nested_loops_top = nest_loops(loop_order);
+        let nested_loops_top = nest_the_loops(loop_order);
 
         tracing_ri(&mut nested_loops_top.clone(), 8, 8);
     }
@@ -139,7 +182,7 @@ mod tests {
             .iter_mut()
             .for_each(|s| Node::extend_loop_body(loop_order.last_mut().unwrap(), s));
 
-        let nested_loops_top = nest_loops(loop_order);
+        let nested_loops_top = nest_the_loops(loop_order);
 
         tracing_ri(&mut nested_loops_top.clone(), 8, 64);
     }
@@ -211,7 +254,7 @@ mod tests {
             .iter_mut()
             .for_each(|s| Node::extend_loop_body(loop_order.last_mut().unwrap(), s));
 
-        let nested_loops_top = nest_loops(loop_order);
+        let nested_loops_top = nest_the_loops(loop_order);
 
         tracing_ri(&mut nested_loops_top.clone(), 8, 8);
     }
@@ -235,7 +278,7 @@ mod tests {
             .iter_mut()
             .for_each(|s| Node::extend_loop_body(loop_order.last_mut().unwrap(), s));
 
-        let nested_loops_top = nest_loops(loop_order);
+        let nested_loops_top = nest_the_loops(loop_order);
 
         tracing_ri(&mut nested_loops_top.clone(), 8, 40);
     }
@@ -264,7 +307,7 @@ mod tests {
             .iter_mut()
             .for_each(|s| Node::extend_loop_body(loop_order.last_mut().unwrap(), s));
 
-        let nested_loops_top = nest_loops(loop_order);
+        let nested_loops_top = nest_the_loops(loop_order);
 
         tracing_ri(&mut nested_loops_top.clone(), 8, 8);
     }
@@ -288,7 +331,7 @@ mod tests {
             .iter_mut()
             .for_each(|s| Node::extend_loop_body(loop_order.last_mut().unwrap(), s));
 
-        let nested_loops_top = nest_loops(loop_order);
+        let nested_loops_top = nest_the_loops(loop_order);
 
         tracing_ri(&mut nested_loops_top.clone(), 8, 8);
     }
@@ -312,7 +355,7 @@ mod tests {
             .iter_mut()
             .for_each(|s| Node::extend_loop_body(loop_order.last_mut().unwrap(), s));
 
-        let nested_loops_top = nest_loops(loop_order);
+        let nested_loops_top = nest_the_loops(loop_order);
 
         tracing_ri(&mut nested_loops_top.clone(), 8, 40);
     }
@@ -343,7 +386,7 @@ mod tests {
             .iter_mut()
             .for_each(|s| Node::extend_loop_body(loop_order.last_mut().unwrap(), s));
 
-        let nested_loops_top = nest_loops(loop_order);
+        let nested_loops_top = nest_the_loops(loop_order);
 
         tracing_ri(&mut nested_loops_top.clone(), 8, 40);
     }
@@ -368,7 +411,7 @@ mod tests {
             .iter_mut()
             .for_each(|s| Node::extend_loop_body(loop_order.last_mut().unwrap(), s));
 
-        let nested_loops_top = nest_loops(loop_order);
+        let nested_loops_top = nest_the_loops(loop_order);
 
         tracing_ri(&mut nested_loops_top.clone(), 8, 64);
     }

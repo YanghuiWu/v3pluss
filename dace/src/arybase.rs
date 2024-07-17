@@ -36,6 +36,8 @@ pub fn set_arybase(aloop: &Rc<Node>) -> (HashMap<String, usize>, usize) {
 
 #[cfg(test)]
 mod test {
+    use crate::{branch_node, loop_node};
+
     use super::*;
 
     #[test]
@@ -45,6 +47,42 @@ mod test {
         if let Stmt::Ref(aref) = &node.stmt {
             let _ = aref.base.unwrap();
         }
+    }
+
+    #[test]
+    fn test_branch() {
+        // for i in 0..n step by 2
+        let ubound = 100; // loop bound
+
+        let ref_a = Node::new_ref("A", vec![100], |i| vec![i[0] as usize]);
+
+        let mut branch = branch_node! {
+            if (|ivec| ivec[0] & 1 == 0) {
+                ref_a
+            }
+        };
+
+        // creating loop i = 0, n
+        let mut i_loop = loop_node!("i", 0 => ubound, step: |x| x + 2);
+        Node::extend_loop_body(&mut i_loop, &mut branch);
+        let (tbl, _size) = set_arybase(&i_loop);
+        println!("{:?}", tbl);
+        assert_eq!(tbl.len(), 1);
+    }
+
+    #[test]
+    fn test_block() {
+        let ref_a = Node::new_ref("A", vec![100], |i| vec![i[0] as usize]);
+        let ref_b = Node::new_ref("B", vec![100], |i| vec![i[0] as usize]);
+
+        let n = Node::new_node(Stmt::Block(vec![ref_a, ref_b]));
+
+        // creating loop i = 0, n
+        // let mut i_loop = loop_node!("i", 0 => ubound, step: |x| x + 2);
+        // Node::extend_loop_body(&mut i_loop, &mut block);
+        let (tbl, _size) = set_arybase(&n);
+        println!("{:?}", tbl);
+        assert_eq!(tbl.len(), 2);
     }
 
     #[test]

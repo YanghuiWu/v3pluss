@@ -46,6 +46,12 @@ impl Walk {
                     self.stack.push((branch.then_body.clone(), 0));
                 }
             }
+            Stmt::Block(blk) => {
+                if visited < blk.len() {
+                    self.stack.push((node.clone(), visited + 1));
+                    self.stack.push((blk[visited].clone(), 0));
+                }
+            }
             _ => {} // AryRef (pop) or Block (handled in the same way as loop but without .body)
         }
         result

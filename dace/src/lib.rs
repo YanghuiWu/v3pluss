@@ -20,10 +20,10 @@ pub fn loop_body(stmts: &[&mut Rc<Node>]) {
 }
 
 pub fn nested_loops(vars: &[&str], ub: i32) -> Rc<Node> {
-    nest_loops(create_loops(vars, 0, ub))
+    nest_the_loops(create_loops(vars, 0, ub))
 }
 
-pub fn nest_loops(mut order: Vec<Rc<Node>>) -> Rc<Node> {
+pub fn nest_the_loops(mut order: Vec<Rc<Node>>) -> Rc<Node> {
     let mut outer_loop = Rc::clone(&order[0]);
     for loop_node in &mut order[1..] {
         Node::extend_loop_body(&mut outer_loop, loop_node);

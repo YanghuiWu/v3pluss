@@ -262,7 +262,6 @@ fn generalized_determine_reuse_intervals(matrixes: Vec<Vec<Vec<u8>>>, references
 
 #[cfg(test)]
 mod tests {
-
     use dace::ast::Node;
     use dace_tests::polybench_simplify;
 
@@ -302,7 +301,7 @@ mod tests {
             .for_each(|s| Node::extend_loop_body(loop_order.last_mut().unwrap(), s));
 
         //the loops which were orignally seperate are not coalessed into eachother so that they are acutally nested
-        let mut nested_loops_top: Rc<Node> = dace::nest_loops(loop_order);
+        let mut nested_loops_top: Rc<Node> = dace::nest_the_loops(loop_order);
         let references: Vec<&str> = vec!["C", "A", "B", "D", "E", "F"];
 
         // rank assignment for loops
@@ -338,7 +337,7 @@ mod tests {
             .iter_mut()
             .for_each(|s| Node::extend_loop_body(loop_order.last_mut().unwrap(), s));
 
-        let mut nested_loops_top = dace::nest_loops(loop_order);
+        let mut nested_loops_top = dace::nest_the_loops(loop_order);
 
         //let arr_refs = count_arr_refs(&nested_loops_top);
 
