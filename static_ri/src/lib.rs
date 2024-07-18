@@ -166,21 +166,22 @@ pub fn tracing_ri(code: &mut Rc<Node>, data_size: usize, cache_line_size: usize)
 #[cfg(test)]
 mod tests {
     use super::*;
+    use dace::construct;
 
     #[test]
     fn test_access3addr_and_tracing() {
         let n: usize = 10; // array dim
         let ubound = n as i32; // loop bound
-        let mut nested_loops_top = dace::nested_loops(&["i", "j", "k"], ubound);
+        let mut nested_loops_top = construct::nested_loops(&["i", "j", "k"], ubound);
 
-        let ref_c = dace::a_ref("C", vec![n, n], vec!["i", "j"]);
-        let ref_a = dace::a_ref("A", vec![n, n], vec!["i", "k"]);
-        let ref_b = dace::a_ref("B", vec![n, n], vec!["k", "j"]);
+        let ref_c = construct::a_ref("C", vec![n, n], vec!["i", "j"]);
+        let ref_a = construct::a_ref("A", vec![n, n], vec!["i", "k"]);
+        let ref_b = construct::a_ref("B", vec![n, n], vec!["k", "j"]);
 
         let mut refs = [ref_c.clone(), ref_a.clone(), ref_b.clone()];
 
         for a_ref in &mut refs {
-            dace::insert_at(a_ref, &mut nested_loops_top, "k");
+            construct::insert_at(a_ref, &mut nested_loops_top, "k");
         }
 
         set_arybase(&nested_loops_top);
@@ -241,10 +242,10 @@ mod tests {
         let n: usize = 4; // array dim
         let ubound = n as i32; // loop bound
         let mut nested_loops =
-            dace::nested_loops(&["i", "j", "k", "l", "m", "n", "o", "p"], ubound);
-        let mut ref_c = dace::a_ref("c", vec![n, n, n], vec!["i", "l", "p"]);
+            construct::nested_loops(&["i", "j", "k", "l", "m", "n", "o", "p"], ubound);
+        let mut ref_c = construct::a_ref("c", vec![n, n, n], vec!["i", "l", "p"]);
 
-        dace::insert_at(&mut ref_c, &mut nested_loops, "p");
+        construct::insert_at(&mut ref_c, &mut nested_loops, "p");
 
         let hist = tracing_ri(&mut nested_loops, 8, 8);
         assert_eq!(hist.hist.get(&Some(4)), Some(&64512));

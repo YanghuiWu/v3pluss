@@ -6,10 +6,11 @@ use std::rc::Rc;
 
 use dace::ast::Node;
 use dace::ast::Stmt;
-use dace::{
-    a_ref, branch_node, create_loops, generate_sub_2, generate_subscript, insert_at,
-    insert_at_innermost, loop_body, loop_node, nested_loops,
+use dace::construct::{
+    a_ref, create_loops, generate_sub_2, generate_subscript, insert_at, insert_at_innermost,
+    loop_body, nested_loops,
 };
+use dace::{branch_node, loop_node};
 
 pub fn lu(n: usize) -> Rc<Node> {
     let ref_a_ij = a_ref("A", vec![n, n], vec!["i", "j"]);

@@ -1,12 +1,7 @@
 use std::fmt::{Debug, Formatter};
 use std::rc::{Rc, Weak};
 
-/// Type alias for the iteration vector, with i32 elements.
-pub type IterVec = Vec<i32>;
-/// Type alias for the array access indices, with usize elements.
-pub type AryAcc = Vec<usize>;
-pub(crate) type DynamicBoundFunction = dyn for<'a> Fn(&'a [i32]) -> i32;
-pub(crate) type DynFunc = dyn for<'a> Fn(&'a [i32]) -> Vec<usize>;
+use crate::types;
 
 /// Each loop and statement is a node in a loop tree.
 #[derive(Debug)]
@@ -31,7 +26,7 @@ pub struct AryRef {
     /// Subscript expressions: one function for each data dimension.
     /// Each function takes the indices of its loop nest and returns indices of the array access.
     #[allow(clippy::type_complexity)]
-    pub sub: Box<dyn for<'a> Fn(&'a [i32]) -> AryAcc>,
+    pub sub: Box<dyn for<'a> Fn(&'a [i32]) -> types::AryAcc>,
     pub base: Option<usize>,
     pub ref_id: Option<usize>,
     pub ri: Vec<String>,
@@ -60,7 +55,7 @@ pub struct LoopStmt {
 pub enum LoopBound {
     Fixed(i32),
     #[allow(clippy::type_complexity)]
-    Dynamic(Box<DynamicBoundFunction>),
+    Dynamic(Box<types::DynamicBoundFunction>),
     Affine {
         a: Vec<i32>,
         b: i32,
@@ -257,7 +252,7 @@ impl Node {
 
     pub fn new_ref<F>(ary_nm: &str, ary_dim: Vec<usize>, ary_sub: F) -> Rc<Node>
     where
-        F: for<'a> Fn(&'a [i32]) -> AryAcc + 'static,
+        F: for<'a> Fn(&'a [i32]) -> types::AryAcc + 'static,
     {
         let ref_stmt = AryRef {
             name: ary_nm.to_string(),
@@ -298,7 +293,11 @@ impl Node {
         )
     }
 
-    pub fn new_single_loop_dyn_ub(ivar: &str, low: i32, ub: Box<DynamicBoundFunction>) -> Rc<Self> {
+    pub fn new_single_loop_dyn_ub(
+        ivar: &str,
+        low: i32,
+        ub: Box<types::DynamicBoundFunction>,
+    ) -> Rc<Self> {
         Self::new_loop(
             ivar,
             LoopBound::Fixed(low),
@@ -400,7 +399,7 @@ impl Node {
 
 #[cfg(test)]
 mod tests {
-    use crate::loop_body;
+    use crate::construct::loop_body;
 
     use super::*;
 

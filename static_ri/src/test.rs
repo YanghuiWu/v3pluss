@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod tests {
     use dace::ast::Node;
-    use dace::nest_the_loops;
+    use dace::construct;
     use dace_tests::polybench_simplify;
     use static_ri::tracing_ri;
 
@@ -17,9 +17,9 @@ mod tests {
     fn test_100b0() {
         let n = 10; // array dim
 
-        let mut nested_loops = dace::nested_loops(&["i", "j", "k", "l", "m"], n);
-        let mut ref_c = dace::squ_ref("c", n, vec!["i", "l"]);
-        dace::insert_at_innermost(&mut ref_c, &mut nested_loops);
+        let mut nested_loops = construct::nested_loops(&["i", "j", "k", "l", "m"], n);
+        let mut ref_c = construct::squ_ref("c", n, vec!["i", "l"]);
+        construct::insert_at_innermost(&mut ref_c, &mut nested_loops);
         // nested_loops.print_structure(0);
 
         tracing_ri(&mut nested_loops, 8, 40);
@@ -29,9 +29,9 @@ mod tests {
     fn test_10b01() {
         let n = 10; // array dim
 
-        let mut nested_loops = dace::nested_loops(&["i", "j", "k", "l", "m"], n);
-        let mut ref_c = dace::squ_ref("c", n, vec!["i", "m", "k"]);
-        dace::insert_at_innermost(&mut ref_c, &mut nested_loops);
+        let mut nested_loops = construct::nested_loops(&["i", "j", "k", "l", "m"], n);
+        let mut ref_c = construct::squ_ref("c", n, vec!["i", "m", "k"]);
+        construct::insert_at_innermost(&mut ref_c, &mut nested_loops);
         nested_loops.print_structure(0);
 
         tracing_ri(&mut nested_loops, 8, 40);
@@ -40,9 +40,9 @@ mod tests {
     #[test]
     fn test_tracing_ri_precise_ri() {
         let n = 10; // array dim
-        let mut nested_loops = dace::nested_loops(&["inf", "i", "j", "k", "l", "m", "n"], n);
-        let mut ref_c = dace::squ_ref("c", n, vec!["i", "m", "l"]);
-        dace::insert_at_innermost(&mut ref_c, &mut nested_loops);
+        let mut nested_loops = construct::nested_loops(&["inf", "i", "j", "k", "l", "m", "n"], n);
+        let mut ref_c = construct::squ_ref("c", n, vec!["i", "m", "l"]);
+        construct::insert_at_innermost(&mut ref_c, &mut nested_loops);
         nested_loops.print_structure(0);
 
         tracing_ri(&mut nested_loops, 8, 40);
@@ -52,10 +52,10 @@ mod tests {
     fn test_p_b10() {
         let n = 8; // array dim
 
-        let mut nested_loops = dace::nested_loops(&["c", "i", "j", "k"], n);
-        let mut ref_c = dace::squ_ref("c", n, vec!["k", "j"]);
+        let mut nested_loops = construct::nested_loops(&["c", "i", "j", "k"], n);
+        let mut ref_c = construct::squ_ref("c", n, vec!["k", "j"]);
 
-        dace::insert_at_innermost(&mut ref_c, &mut nested_loops);
+        construct::insert_at_innermost(&mut ref_c, &mut nested_loops);
 
         tracing_ri(&mut nested_loops, 8, 16);
     }
@@ -64,10 +64,10 @@ mod tests {
     fn test_1b0() {
         let n = 10; // array dim
 
-        let mut nested_loops = dace::nested_loops(&["c", "i", "j", "k"], n);
-        let mut ref_c = dace::squ_ref("c", n, vec!["i", "j"]);
+        let mut nested_loops = construct::nested_loops(&["c", "i", "j", "k"], n);
+        let mut ref_c = construct::squ_ref("c", n, vec!["i", "j"]);
 
-        dace::insert_at_innermost(&mut ref_c, &mut nested_loops);
+        construct::insert_at_innermost(&mut ref_c, &mut nested_loops);
 
         tracing_ri(&mut nested_loops, 8, 40);
     }
@@ -76,10 +76,10 @@ mod tests {
     fn test_b10() {
         let n = 10; // array dim
 
-        let mut nested_loops = dace::nested_loops(&["j", "k", "i"], n);
-        let mut ref_c = dace::squ_ref("c", n, vec!["k", "j"]);
+        let mut nested_loops = construct::nested_loops(&["j", "k", "i"], n);
+        let mut ref_c = construct::squ_ref("c", n, vec!["k", "j"]);
 
-        dace::insert_at_innermost(&mut ref_c, &mut nested_loops);
+        construct::insert_at_innermost(&mut ref_c, &mut nested_loops);
 
         tracing_ri(&mut nested_loops, 8, 8);
     }
@@ -88,10 +88,10 @@ mod tests {
     fn test_111() {
         let n: usize = 8; // array dim
         let ubound = n as i32; // loop bound
-        let mut nested_loops = dace::nested_loops(&["j", "i"], ubound);
-        let mut ref_c = dace::a_ref("c", vec![n, n], vec!["j", "i"]);
+        let mut nested_loops = construct::nested_loops(&["j", "i"], ubound);
+        let mut ref_c = construct::a_ref("c", vec![n, n], vec!["j", "i"]);
 
-        dace::insert_at(&mut ref_c, &mut nested_loops, "i");
+        construct::insert_at(&mut ref_c, &mut nested_loops, "i");
 
         tracing_ri(&mut nested_loops, 8, 8);
     }
@@ -100,7 +100,7 @@ mod tests {
     fn test_combined() {
         // let n: usize = 10; // array dim
         // let ubound = n as i32; // loop bound
-        // // let mut nested_loops = dace::nested_loops(&vec!["j", "i"], ubound);
+        // // let mut nested_loops = construct::nested_loops(&vec!["j", "i"], ubound);
         // let mut i_loop_ref = Node::new_single_loop("i", 0, ubound as i32);
         // let mut j_loop_ref = Node::new_single_loop("j", 0, ubound as i32);
         // let mut ref_c = Node::new_ref("A", vec![n], |ijk| {
@@ -127,7 +127,7 @@ mod tests {
             .iter_mut()
             .for_each(|s| Node::extend_loop_body(loop_order.last_mut().unwrap(), s));
 
-        let nested_loops_top = nest_the_loops(loop_order);
+        let nested_loops_top = construct::nest_the_loops(loop_order);
 
         tracing_ri(&mut nested_loops_top.clone(), 8, 8);
     }
@@ -136,22 +136,22 @@ mod tests {
     fn test_access3addr_and_tracing() {
         let n: usize = 10; // array dim
         let ubound = n as i32; // loop bound
-        let mut nested_loops_top = dace::nested_loops(&["i", "j", "k"], ubound);
+        let mut nested_loops_top = construct::nested_loops(&["i", "j", "k"], ubound);
 
-        let ref_c = dace::a_ref("C", vec![n, n], vec!["i", "j"]);
-        let ref_a = dace::a_ref("A", vec![n, n], vec!["i", "k"]);
-        let ref_b = dace::a_ref("B", vec![n, n], vec!["k", "j"]);
+        let ref_c = construct::a_ref("C", vec![n, n], vec!["i", "j"]);
+        let ref_a = construct::a_ref("A", vec![n, n], vec!["i", "k"]);
+        let ref_b = construct::a_ref("B", vec![n, n], vec!["k", "j"]);
 
         let mut refs = [ref_c.clone(), ref_a.clone(), ref_b.clone()];
 
         for a_ref in &mut refs {
-            dace::insert_at(a_ref, &mut nested_loops_top, "k");
+            construct::insert_at(a_ref, &mut nested_loops_top, "k");
         }
         tracing_ri(&mut nested_loops_top.clone(), 8, 40);
 
-        let mut nested_loops_top = dace::nested_loops(&["j", "k", "i"], ubound);
+        let mut nested_loops_top = construct::nested_loops(&["j", "k", "i"], ubound);
         for a_ref in &mut refs {
-            dace::insert_at(a_ref, &mut nested_loops_top, "i");
+            construct::insert_at(a_ref, &mut nested_loops_top, "i");
         }
         tracing_ri(&mut nested_loops_top.clone(), 8, 40);
     }
@@ -182,7 +182,7 @@ mod tests {
             .iter_mut()
             .for_each(|s| Node::extend_loop_body(loop_order.last_mut().unwrap(), s));
 
-        let nested_loops_top = nest_the_loops(loop_order);
+        let nested_loops_top = construct::nest_the_loops(loop_order);
 
         tracing_ri(&mut nested_loops_top.clone(), 8, 64);
     }
@@ -190,13 +190,13 @@ mod tests {
     #[test]
     fn test_tracing_101() {
         let n = 10;
-        let mut nest_loops = dace::nested_loops(&["i", "j", "k"], n as i32);
-        let mut ref_c = dace::a_ref("ref_c", vec![n, n], vec!["i", "j"]);
-        dace::insert_at(&mut ref_c, &mut nest_loops, "k");
-        let mut ref_a = dace::a_ref("ref_a", vec![n, n], vec!["i", "k"]);
-        dace::insert_at(&mut ref_a, &mut nest_loops, "k");
-        let mut ref_b = dace::a_ref("ref_b", vec![n, n], vec!["k", "j"]);
-        dace::insert_at(&mut ref_b, &mut nest_loops, "k");
+        let mut nest_loops = construct::nested_loops(&["i", "j", "k"], n as i32);
+        let mut ref_c = construct::a_ref("ref_c", vec![n, n], vec!["i", "j"]);
+        construct::insert_at(&mut ref_c, &mut nest_loops, "k");
+        let mut ref_a = construct::a_ref("ref_a", vec![n, n], vec!["i", "k"]);
+        construct::insert_at(&mut ref_a, &mut nest_loops, "k");
+        let mut ref_b = construct::a_ref("ref_b", vec![n, n], vec!["k", "j"]);
+        construct::insert_at(&mut ref_b, &mut nest_loops, "k");
 
         tracing_ri(&mut nest_loops.clone(), 1, 4);
     }
@@ -204,19 +204,19 @@ mod tests {
     #[test]
     fn higer_dim_loop_test() {
         let n = 10;
-        let mut nest_loops = dace::nested_loops(&["i", "j", "k", "l", "m", "n"], n as i32);
-        let mut ref_c = dace::a_ref("ref_c", vec![n, n], vec!["i", "j"]);
-        dace::insert_at(&mut ref_c, &mut nest_loops, "n");
-        let mut ref_a = dace::a_ref("ref_a", vec![n, n], vec!["i", "k"]);
-        dace::insert_at(&mut ref_a, &mut nest_loops, "n");
-        let mut ref_b = dace::a_ref("ref_b", vec![n, n], vec!["k", "j"]);
-        dace::insert_at(&mut ref_b, &mut nest_loops, "n");
-        let _ref_d = dace::a_ref("ref_d", vec![n, n, n], vec!["j", "l", "n"]);
-        dace::insert_at(&mut ref_c, &mut nest_loops, "n");
-        let _ref_e = dace::a_ref("ref_e", vec![n, n], vec!["i", "k"]);
-        dace::insert_at(&mut ref_a, &mut nest_loops, "n");
-        let _ref_f = dace::a_ref("ref_f", vec![n, n], vec!["k", "j"]);
-        dace::insert_at(&mut ref_b, &mut nest_loops, "n");
+        let mut nest_loops = construct::nested_loops(&["i", "j", "k", "l", "m", "n"], n as i32);
+        let mut ref_c = construct::a_ref("ref_c", vec![n, n], vec!["i", "j"]);
+        construct::insert_at(&mut ref_c, &mut nest_loops, "n");
+        let mut ref_a = construct::a_ref("ref_a", vec![n, n], vec!["i", "k"]);
+        construct::insert_at(&mut ref_a, &mut nest_loops, "n");
+        let mut ref_b = construct::a_ref("ref_b", vec![n, n], vec!["k", "j"]);
+        construct::insert_at(&mut ref_b, &mut nest_loops, "n");
+        let _ref_d = construct::a_ref("ref_d", vec![n, n, n], vec!["j", "l", "n"]);
+        construct::insert_at(&mut ref_c, &mut nest_loops, "n");
+        let _ref_e = construct::a_ref("ref_e", vec![n, n], vec!["i", "k"]);
+        construct::insert_at(&mut ref_a, &mut nest_loops, "n");
+        let _ref_f = construct::a_ref("ref_f", vec![n, n], vec!["k", "j"]);
+        construct::insert_at(&mut ref_b, &mut nest_loops, "n");
 
         tracing_ri(&mut nest_loops.clone(), 1, 4);
     }
@@ -224,13 +224,13 @@ mod tests {
     #[test]
     fn test_tracing_101_2() {
         let n = 20;
-        let mut nest_loops = dace::nested_loops(&["i", "j", "k"], n as i32);
-        let ref_c = dace::a_ref("ref_c", vec![n, n], vec!["i", "j"]);
-        let ref_a = dace::a_ref("ref_a", vec![n, n], vec!["i", "k"]);
-        let ref_b = dace::a_ref("ref_b", vec![n, n], vec!["k", "j"]);
+        let mut nest_loops = construct::nested_loops(&["i", "j", "k"], n as i32);
+        let ref_c = construct::a_ref("ref_c", vec![n, n], vec!["i", "j"]);
+        let ref_a = construct::a_ref("ref_a", vec![n, n], vec!["i", "k"]);
+        let ref_b = construct::a_ref("ref_b", vec![n, n], vec!["k", "j"]);
 
         for s in &mut [ref_c, ref_a, ref_b] {
-            dace::insert_at(s, &mut nest_loops, "k");
+            construct::insert_at(s, &mut nest_loops, "k");
         }
 
         tracing_ri(&mut nest_loops.clone(), 8, 40);
@@ -254,7 +254,7 @@ mod tests {
             .iter_mut()
             .for_each(|s| Node::extend_loop_body(loop_order.last_mut().unwrap(), s));
 
-        let nested_loops_top = nest_the_loops(loop_order);
+        let nested_loops_top = construct::nest_the_loops(loop_order);
 
         tracing_ri(&mut nested_loops_top.clone(), 8, 8);
     }
@@ -278,7 +278,7 @@ mod tests {
             .iter_mut()
             .for_each(|s| Node::extend_loop_body(loop_order.last_mut().unwrap(), s));
 
-        let nested_loops_top = nest_the_loops(loop_order);
+        let nested_loops_top = construct::nest_the_loops(loop_order);
 
         tracing_ri(&mut nested_loops_top.clone(), 8, 40);
     }
@@ -307,7 +307,7 @@ mod tests {
             .iter_mut()
             .for_each(|s| Node::extend_loop_body(loop_order.last_mut().unwrap(), s));
 
-        let nested_loops_top = nest_the_loops(loop_order);
+        let nested_loops_top = construct::nest_the_loops(loop_order);
 
         tracing_ri(&mut nested_loops_top.clone(), 8, 8);
     }
@@ -331,7 +331,7 @@ mod tests {
             .iter_mut()
             .for_each(|s| Node::extend_loop_body(loop_order.last_mut().unwrap(), s));
 
-        let nested_loops_top = nest_the_loops(loop_order);
+        let nested_loops_top = construct::nest_the_loops(loop_order);
 
         tracing_ri(&mut nested_loops_top.clone(), 8, 8);
     }
@@ -355,7 +355,7 @@ mod tests {
             .iter_mut()
             .for_each(|s| Node::extend_loop_body(loop_order.last_mut().unwrap(), s));
 
-        let nested_loops_top = nest_the_loops(loop_order);
+        let nested_loops_top = construct::nest_the_loops(loop_order);
 
         tracing_ri(&mut nested_loops_top.clone(), 8, 40);
     }
@@ -386,7 +386,7 @@ mod tests {
             .iter_mut()
             .for_each(|s| Node::extend_loop_body(loop_order.last_mut().unwrap(), s));
 
-        let nested_loops_top = nest_the_loops(loop_order);
+        let nested_loops_top = construct::nest_the_loops(loop_order);
 
         tracing_ri(&mut nested_loops_top.clone(), 8, 40);
     }
@@ -411,7 +411,7 @@ mod tests {
             .iter_mut()
             .for_each(|s| Node::extend_loop_body(loop_order.last_mut().unwrap(), s));
 
-        let nested_loops_top = nest_the_loops(loop_order);
+        let nested_loops_top = construct::nest_the_loops(loop_order);
 
         tracing_ri(&mut nested_loops_top.clone(), 8, 64);
     }

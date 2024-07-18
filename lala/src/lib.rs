@@ -263,6 +263,7 @@ fn generalized_determine_reuse_intervals(matrixes: Vec<Vec<Vec<u8>>>, references
 #[cfg(test)]
 mod tests {
     use dace::ast::Node;
+    use dace::construct;
     use dace_tests::polybench_simplify;
 
     use super::*;
@@ -281,13 +282,13 @@ mod tests {
 
         // creating C[i,j] += A[i,k] * B[k,j]
         // also D[j,l,n] += E[j,l,l] * F[i,j,m]
-        let ref_c = dace::a_ref("C", vec![n, n], vec!["i", "j"]);
-        let ref_a = dace::a_ref("A", vec![n, n], vec!["i", "k"]);
-        let ref_b = dace::a_ref("B", vec![n, n], vec!["k", "j"]);
+        let ref_c = construct::a_ref("C", vec![n, n], vec!["i", "j"]);
+        let ref_a = construct::a_ref("A", vec![n, n], vec!["i", "k"]);
+        let ref_b = construct::a_ref("B", vec![n, n], vec!["k", "j"]);
 
-        let ref_d = dace::a_ref("D", vec![n, n, n], vec!["j", "l", "n"]);
-        let ref_e = dace::a_ref("E", vec![n, n, n], vec!["j", "l", "l"]);
-        let ref_f = dace::a_ref("F", vec![n, n, n], vec!["i", "j", "m"]);
+        let ref_d = construct::a_ref("D", vec![n, n, n], vec!["j", "l", "n"]);
+        let ref_e = construct::a_ref("E", vec![n, n, n], vec!["j", "l", "l"]);
+        let ref_f = construct::a_ref("F", vec![n, n, n], vec!["i", "j", "m"]);
 
         // Choose the loop order here by specifying the order of the loops
         // let loop_order = &mut [&mut i_loop, &mut j_loop, &mut k_loop];
@@ -301,11 +302,11 @@ mod tests {
             .for_each(|s| Node::extend_loop_body(loop_order.last_mut().unwrap(), s));
 
         //the loops which were orignally seperate are not coalessed into eachother so that they are acutally nested
-        let mut nested_loops_top: Rc<Node> = dace::nest_the_loops(loop_order);
+        let mut nested_loops_top: Rc<Node> = construct::nest_the_loops(loop_order);
         let references: Vec<&str> = vec!["C", "A", "B", "D", "E", "F"];
 
         // rank assignment for loops
-        dace::assign_ranks(&mut nested_loops_top, 0);
+        construct::assign_ranks(&mut nested_loops_top, 0);
         // loop matrix is found where for each array access we store essentially a 2d
         // array by dimension and if a given loop has an influnce on a respective dimension
         let loop_matrixes: Vec<Vec<Vec<u8>>> =
@@ -324,9 +325,9 @@ mod tests {
         let k_loop = Node::new_single_loop("k", 0, ubound);
 
         // creating C[i,j] += A[i,k] * B[k,j]
-        let ref_c = dace::a_ref("C", vec![n, n], vec!["i", "j"]);
-        let ref_a = dace::a_ref("A", vec![n, n], vec!["i", "k"]);
-        let ref_b = dace::a_ref("B", vec![n, n], vec!["k", "j"]);
+        let ref_c = construct::a_ref("C", vec![n, n], vec!["i", "j"]);
+        let ref_a = construct::a_ref("A", vec![n, n], vec!["i", "k"]);
+        let ref_b = construct::a_ref("B", vec![n, n], vec!["k", "j"]);
 
         // Choose the loop order here by specifying the order of the loops
         //let mut loop_order = &mut [&mut i_loop, &mut j_loop, &mut k_loop];
@@ -337,13 +338,13 @@ mod tests {
             .iter_mut()
             .for_each(|s| Node::extend_loop_body(loop_order.last_mut().unwrap(), s));
 
-        let mut nested_loops_top = dace::nest_the_loops(loop_order);
+        let mut nested_loops_top = construct::nest_the_loops(loop_order);
 
         //let arr_refs = count_arr_refs(&nested_loops_top);
 
         // let (tbl, _size) = set_arybase(&mut nested_loops_top);
         // println!("{:?}", tbl);
-        dace::assign_ranks(&mut nested_loops_top, 0);
+        construct::assign_ranks(&mut nested_loops_top, 0);
         let references: Vec<&str> = vec!["C", "A", "B"];
 
         // loop matrix is found where for each array access we store essentially a 2d
@@ -371,7 +372,7 @@ mod tests {
 
         // let mut bench = polybench_simplify::trmm_trace(1024, 1024);
         let mut bench = polybench_simplify::symm(1024, 1024);
-        dace::assign_ranks(&mut bench, 0);
+        construct::assign_ranks(&mut bench, 0);
         bench.print_structure(0);
         let arr_refs = count_arr_refs(&bench);
         calculate_reuse_intervals(&mut bench, &mut HashMap::new(), arr_refs);
