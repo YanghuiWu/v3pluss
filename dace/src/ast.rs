@@ -1,4 +1,5 @@
 use std::fmt::{Debug, Formatter};
+use std::ops::{Add, Div, Mul, Sub};
 use std::rc::{Rc, Weak};
 
 use crate::types;
@@ -127,6 +128,62 @@ impl From<(Vec<i32>, i32)> for LoopBound {
         }
     }
 }
+//Example:
+// impl Add for LoopBound {
+//     type Output = Self;
+
+//     fn add(self, other: Self) -> Self {
+//         match (self, other) {
+//             (LoopBound::Fixed(constant_a), LoopBound::Fixed(constant_b)) => LoopBound::Fixed(Add::add(constant_a, constant_b)),
+//             (LoopBound::Fixed(constant_a), LoopBound::Dynamic(dynamic_b)) => LoopBound::Dynamic(Box::new(move |vector: &[i32]| {
+//                 Add::add(constant_a, dynamic_b(vector))
+//             })),
+//             (LoopBound::Dynamic(dynamic_a), LoopBound::Fixed(constant_b)) => LoopBound::Dynamic(Box::new(move |vector: &[i32]| {
+//                 Add::add(dynamic_a(vector), constant_b)
+//             })),
+//             (LoopBound::Dynamic(dynamic_a), LoopBound::Dynamic(dynamic_b)) => LoopBound::Dynamic(Box::new(move |vector: &[i32]| {
+//                 Add::add(dynamic_a(vector), dynamic_b(vector))
+//             })),
+//             _ => unimplemented!("The operation + is not implemented for some type Affine"),
+//         }
+//     }
+// }
+macro_rules! loopbound_binop {
+    ($operation_trait:ident, $binop:ident) => {
+        impl $operation_trait for LoopBound {
+            type Output = Self;
+
+            fn $binop(self, other: LoopBound) -> LoopBound {
+                match (self, other) {
+                    (LoopBound::Fixed(constant_a), LoopBound::Fixed(constant_b)) => {
+                        LoopBound::Fixed($operation_trait::$binop(constant_a, constant_b))
+                    }
+                    (LoopBound::Fixed(constant_a), LoopBound::Dynamic(dynamic_b)) => {
+                        LoopBound::Dynamic(Box::new(move |vector: &[i32]| {
+                            $operation_trait::$binop(constant_a, dynamic_b(vector))
+                        }))
+                    }
+                    (LoopBound::Dynamic(dynamic_a), LoopBound::Fixed(constant_b)) => {
+                        LoopBound::Dynamic(Box::new(move |vector: &[i32]| {
+                            $operation_trait::$binop(dynamic_a(vector), constant_b)
+                        }))
+                    }
+                    (LoopBound::Dynamic(dynamic_a), LoopBound::Dynamic(dynamic_b)) => {
+                        LoopBound::Dynamic(Box::new(move |vector: &[i32]| {
+                            $operation_trait::$binop(dynamic_a(vector), dynamic_b(vector))
+                        }))
+                    }
+                    _ => unimplemented!("The operation + is not implemented for some type Affine"),
+                }
+            }
+        }
+    };
+}
+
+loopbound_binop!(Add, add);
+loopbound_binop!(Sub, sub);
+loopbound_binop!(Mul, mul);
+loopbound_binop!(Div, div);
 
 #[macro_export]
 macro_rules! dynamic {
