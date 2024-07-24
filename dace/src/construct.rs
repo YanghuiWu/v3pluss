@@ -63,8 +63,8 @@ pub fn generate_sub(indices: &[String], loops: &[String]) -> Box<types::DynFunc>
 }
 
 pub fn generate_sub_2(indices: &[&str], loops: &[&str]) -> Box<types::DynFunc> {
-    println!("indices: {:?}", indices);
-    println!("loops: {:?}", loops);
+    // println!("indices: {:?}", indices);
+    // println!("loops: {:?}", loops);
 
     let index_map = indices
         .iter()
@@ -73,12 +73,12 @@ pub fn generate_sub_2(indices: &[&str], loops: &[&str]) -> Box<types::DynFunc> {
             acc.insert(value, index);
             acc
         });
-    println!("index_map: {:?}", index_map);
+    // println!("index_map: {:?}", index_map);
     let rank_indices: Vec<usize> = loops
         .iter()
         .map(move |loop_index| *index_map.get(loop_index).unwrap())
         .collect();
-    println!("rank_indices: {:?}", rank_indices);
+    // println!("rank_indices: {:?}", rank_indices);
     Box::new(move |ivec: &[i32]| rank_indices.iter().map(|&pos| ivec[pos] as usize).collect())
 }
 

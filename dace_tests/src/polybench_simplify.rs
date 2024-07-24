@@ -2,8 +2,8 @@
 
 #![allow(dead_code, non_snake_case)]
 
-use std::rc::Rc;
-
+#[allow(unused_imports)]
+use dace::ast::LoopBound::{Affine, Dynamic, Fixed};
 use dace::ast::Node;
 use dace::ast::Stmt;
 use dace::construct::{
@@ -11,6 +11,7 @@ use dace::construct::{
     loop_body, nested_loops,
 };
 use dace::{branch_node, loop_node};
+use std::rc::Rc;
 
 pub fn lu(n: usize) -> Rc<Node> {
     let ref_a_ij = a_ref("A", vec![n, n], vec!["i", "j"]);
@@ -31,7 +32,7 @@ pub fn lu(n: usize) -> Rc<Node> {
     let loop_indices = vec!["i", "j", "k"];
     let bounds = |loop_index| generate_subscript(&loop_indices, loop_index);
 
-    let mut i_loop_ref = Node::new_single_loop("i", 0, ubound);
+    let mut i_loop_ref = loop_node!("i", 0 => ubound);
     let mut j_loop_lower_ref = loop_node!("j", 0 => bounds("i"));
     let mut k_loop_ref_j = loop_node!("k", 0 => bounds("k"));
     let mut j_loop_upper_ref = loop_node!("j", bounds("i") => ubound);
@@ -72,7 +73,7 @@ pub fn lu_affine(n: usize) -> Rc<Node> {
 
     let ubound = n as i32;
 
-    let mut i_loop_ref = Node::new_single_loop("i", 0, ubound);
+    let mut i_loop_ref = loop_node!("i", 0 => ubound);
     let mut j_loop_lower_ref = loop_node!("j", 0 => (vec![1, 0, 0], 0));
     let mut k_loop_ref_j = loop_node!("k", 0 => (vec![0, 1, 0], 0));
     let mut j_loop_upper_ref = loop_node!("j", (vec![1, 0, 0], 0) => ubound);
@@ -98,8 +99,8 @@ pub fn lu_affine(n: usize) -> Rc<Node> {
 }
 
 pub fn trmm_trace(M: usize, N: usize) -> Rc<Node> {
-    let mut i_loop_ref = Node::new_single_loop("i", 0, M as i32);
-    let mut j_loop_ref = Node::new_single_loop("j", 0, N as i32);
+    let mut i_loop_ref = loop_node!("i", 0 => M as i32);
+    let mut j_loop_ref = loop_node!("j", 0 => N as i32);
     let mut k_loop_ref =
         Node::new_single_loop("k", Node::get_lb(&i_loop_ref).unwrap() + 1, M as i32);
 
@@ -171,7 +172,7 @@ pub fn trisolv(n: usize) -> Rc<Node> {
     // n : usize is size of array
     let ubound = n as i32;
 
-    let mut i_loop_ref = Node::new_single_loop("i", 0, ubound);
+    let mut i_loop_ref = loop_node!("i", 0 => ubound);
     let mut j_loop_ref = Node::new_single_loop_dyn_ub("j", 0, bounds("i"));
 
     // creating x[i] = b[i];
@@ -215,7 +216,7 @@ pub fn syrk(n: usize, m: usize) -> Rc<Node> {
 
     let mut i_loop_ref = nested_loops(&["i", "j"], ubound1);
     let mut k_loop_ref = nested_loops(&["k", "l"], ubound1);
-    let mut m_loop_ref = Node::new_single_loop("m", 0, ubound2);
+    let mut m_loop_ref = loop_node!("m", 0 => ubound2);
 
     //creating C[i][j] = C[i][j] * beta
     let mut s_ref_c1 = a_ref("c", vec![n, n], vec!["i", "j"]);
@@ -251,9 +252,9 @@ pub fn syr2d(n: usize, m: usize) -> Rc<Node> {
     let ubound1 = n as i32;
     let ubound2 = m as i32;
 
-    let mut i_loop_ref = Node::new_single_loop("i", 0, ubound1);
+    let mut i_loop_ref = loop_node!("i", 0 => ubound1);
     let mut j_loop_ref = loop_node!("j", 0 => bounds("i"));
-    let mut k_loop_ref = Node::new_single_loop("k", 0, ubound2);
+    let mut k_loop_ref = loop_node!("k", 0 => ubound2);
     let mut l_loop_ref = loop_node!("l", 0 => bounds("i"));
 
     insert_at(&mut j_loop_ref, &mut i_loop_ref, "i");
@@ -342,9 +343,9 @@ pub fn _3mm(NI: usize, NJ: usize, NK: usize, NL: usize, NM: usize) -> Rc<Node> {
     let s_ref_a = a_ref("a", vec![NI, NK], vec!["i", "k"]);
     let s_ref_b = a_ref("b", vec![NK, NJ], vec!["k", "j"]);
 
-    let mut ini_loop_ref1 = Node::new_single_loop("i", 0, NI as i32);
-    let mut jnj_loop_ref1 = Node::new_single_loop("j", 0, NJ as i32);
-    let mut knk_loop_ref = Node::new_single_loop("k", 0, NK as i32);
+    let mut ini_loop_ref1 = loop_node!("i", 0 => NI as i32);
+    let mut jnj_loop_ref1 = loop_node!("j", 0 => NJ as i32);
+    let mut knk_loop_ref = loop_node!("k", 0 => NK as i32);
 
     insert_at(&mut jnj_loop_ref1, &mut ini_loop_ref1, "i");
 
@@ -362,9 +363,9 @@ pub fn _3mm(NI: usize, NJ: usize, NK: usize, NL: usize, NM: usize) -> Rc<Node> {
     let s_ref_c = a_ref("c", vec![NJ, NM], vec!["i", "k"]);
     let s_ref_d = a_ref("d", vec![NM, NL], vec!["k", "j"]);
 
-    let mut inj_loop_ref = Node::new_single_loop("i", 0, NJ as i32);
-    let mut jnl_loop_ref = Node::new_single_loop("j", 0, NL as i32);
-    let mut knm_loop_ref = Node::new_single_loop("k", 0, NM as i32);
+    let mut inj_loop_ref = loop_node!("i", 0 => NJ as i32);
+    let mut jnl_loop_ref = loop_node!("j", 0 => NL as i32);
+    let mut knm_loop_ref = loop_node!("k", 0 => NM as i32);
 
     insert_at(&mut jnl_loop_ref, &mut inj_loop_ref, "i");
 
@@ -382,9 +383,9 @@ pub fn _3mm(NI: usize, NJ: usize, NK: usize, NL: usize, NM: usize) -> Rc<Node> {
     let s_ref_e_2 = a_ref("e", vec![NI, NJ], vec!["i", "k"]);
     let s_ref_f_2 = a_ref("f", vec![NJ, NL], vec!["k", "j"]);
 
-    let mut ini_loop_ref2 = Node::new_single_loop("i", 0, NI as i32);
-    let mut jnl_loop_ref2 = Node::new_single_loop("j", 0, NL as i32);
-    let mut knj_loop_ref = Node::new_single_loop("k", 0, NJ as i32);
+    let mut ini_loop_ref2 = loop_node!("i", 0 => NI as i32);
+    let mut jnl_loop_ref2 = loop_node!("j", 0 => NL as i32);
+    let mut knj_loop_ref = loop_node!("k", 0 => NJ as i32);
 
     insert_at(&mut jnl_loop_ref2, &mut ini_loop_ref2, "i");
 
@@ -412,9 +413,9 @@ pub fn _2mm(NI: usize, NJ: usize, NK: usize, NL: usize) -> Rc<Node> {
     let s_ref_c = a_ref("c", vec![NL, NJ], vec!["k", "j"]);
     let s_ref_d = a_ref("d", vec![NI, NL], vec!["i", "j"]);
 
-    let mut ini_loop_ref1 = Node::new_single_loop("i", 0, NI as i32);
-    let mut jnj_loop_ref = Node::new_single_loop("j", 0, NJ as i32);
-    let knk_loop_ref = Node::new_single_loop("k", 0, NK as i32);
+    let mut ini_loop_ref1 = loop_node!("i", 0 =>  NI as i32);
+    let mut jnj_loop_ref = loop_node!("j", 0 => NJ as i32);
+    let knk_loop_ref = loop_node!("k", 0 => NK as i32);
     let mut knk_loop_ref_clone = knk_loop_ref.clone();
 
     insert_at(&mut jnj_loop_ref, &mut ini_loop_ref1, "i");
@@ -429,9 +430,9 @@ pub fn _2mm(NI: usize, NJ: usize, NK: usize, NL: usize) -> Rc<Node> {
         insert_at(node, &mut knk_loop_ref_clone, "k");
     }
 
-    let mut ini_loop_ref2 = Node::new_single_loop("i", 0, NI as i32);
-    let mut jnl_loop_ref = Node::new_single_loop("j", 0, NL as i32);
-    let mut knj_loop_ref = Node::new_single_loop("k", 0, NJ as i32);
+    let mut ini_loop_ref2 = loop_node!("i", 0 => NI as i32);
+    let mut jnl_loop_ref = loop_node!("j", 0 => NL as i32);
+    let mut knj_loop_ref = loop_node!("k", 0 => NJ as i32);
 
     insert_at(&mut jnl_loop_ref, &mut ini_loop_ref2, "i");
 
@@ -451,13 +452,14 @@ pub fn _2mm(NI: usize, NJ: usize, NK: usize, NL: usize) -> Rc<Node> {
 pub fn cholesky(n: usize) -> Rc<Node> {
     let loop_indices = vec!["i", "j", "k"];
     let bounds = |loop_index| generate_subscript(&loop_indices, loop_index);
+    let ary_sub = |loops| generate_sub_2(&loop_indices, loops);
 
     let ubound = n as i32;
 
-    let mut i_loop_ref = Node::new_single_loop("i", 0, ubound);
-    let mut j_loop_ref = Node::new_single_loop_dyn_ub("j", 0, bounds("i"));
-    let mut k1_loop_ref = Node::new_single_loop_dyn_ub("k", 0, bounds("i"));
-    let mut k2_loop_ref = Node::new_single_loop_dyn_ub("k", 0, bounds("i"));
+    let mut i_loop_ref = loop_node!("i", 0 => ubound);
+    let mut j_loop_ref = loop_node!("j", 0 => bounds("i"));
+    let mut k1_loop_ref = loop_node!("k", 0 => bounds("i"));
+    let mut k2_loop_ref = loop_node!("k", 0 => bounds("i"));
 
     loop_body(&[&mut i_loop_ref, &mut j_loop_ref, &mut k1_loop_ref]);
 
@@ -486,10 +488,8 @@ pub fn cholesky(n: usize) -> Rc<Node> {
     insert_at(&mut k2_loop_ref, &mut i_loop_ref, "i");
 
     //create A[i * N + i] -= A[i * N + k] * A[i * N + k];
-    let s_ref_aii1 = Node::new_ref("a", vec![n], |ijk| vec![ijk[0] as usize]);
-    let s_ref_aik2 = Node::new_ref("a", vec![n, n], |ijk| {
-        vec![ijk[0] as usize, ijk[2] as usize]
-    });
+    let s_ref_aii1 = Node::new_ref("a", vec![n], ary_sub(&["i"]));
+    let s_ref_aik2 = Node::new_ref("a", vec![n, n], ary_sub(&["i", "k"]));
 
     loop_body(&[
         &mut k2_loop_ref.clone(),
@@ -556,7 +556,7 @@ pub fn gramschmidt_trace(n: usize, m: usize) -> Rc<Node> {
     //insert r3 clone here in this order
     //insert a3 clone here in this order
 
-    let mut k_loop_ref = Node::new_single_loop("k", 0, n as i32);
+    let mut k_loop_ref = loop_node!("k", 0 => n as i32);
     let i_loops = create_loops(&["i", "i", "i", "i"], 0, m as i32);
     let (mut i_loop_ref, mut i_loop_ref2, mut i_loop_ref3, mut i_loop_ref4) = (
         i_loops[0].clone(),
@@ -620,7 +620,7 @@ pub fn heat_3d(m: usize, n: usize) -> Rc<Node> {
     let ubound = n as i32; // loop bound
     let tsteps = m as i32; // steps bound
 
-    let mut t_loop_ref = Node::new_single_loop("t", 0, tsteps);
+    let mut t_loop_ref = loop_node!("t", 0 => tsteps);
 
     let i1_j1_k1 = create_loops(&["i_1", "j_1", "k_1"], 0, ubound);
     let (mut i_loop_ref_1, mut j_loop_ref_1, mut k_loop_ref_1) = (
@@ -737,8 +737,8 @@ pub fn heat_3d(m: usize, n: usize) -> Rc<Node> {
 }
 
 pub fn convolution_2d(ni: usize, nj: usize) -> Rc<Node> {
-    let mut i_ni_loop_ref = Node::new_single_loop("i", 1, (ni - 1) as i32);
-    let mut j_nj_loop_ref = Node::new_single_loop("j", 1, (nj - 1) as i32);
+    let mut i_ni_loop_ref = loop_node!("i", 1 => Fixed(ni as i32) - Fixed(1));
+    let mut j_nj_loop_ref = loop_node!("j", 1 => Fixed(nj as i32) - Fixed(1));
 
     insert_at(&mut j_nj_loop_ref, &mut i_ni_loop_ref, "i");
 
@@ -760,8 +760,8 @@ pub fn symm(n: usize, m: usize) -> Rc<Node> {
     let ubound2 = m as i32;
 
     // creating loops
-    let mut i_loop_ref = Node::new_single_loop("i", 0, ubound2);
-    let mut j_loop_ref = Node::new_single_loop("j", 0, ubound1);
+    let mut i_loop_ref = loop_node!("i", 0 => ubound2);
+    let mut j_loop_ref = loop_node!("j", 0 => ubound1);
     let mut k_loop_ref = loop_node!("k", 0 => bounds("i"));
 
     loop_body(&[&mut i_loop_ref, &mut j_loop_ref, &mut k_loop_ref]);
@@ -822,7 +822,7 @@ pub fn seidel_2d(m: usize, n: usize) -> Rc<Node> {
     let tsteps = m as i32;
 
     // creating loops
-    let mut i_loop_ref = Node::new_single_loop("i", 0, tsteps - 1);
+    let mut i_loop_ref = loop_node!("i", 0 => Fixed(tsteps) - Fixed(1));
     let mut j_loop_ref = nested_loops(&["j", "k"], ubound - 2);
 
     insert_at(&mut j_loop_ref, &mut i_loop_ref, "i");
@@ -845,10 +845,10 @@ pub fn ludcmp(n: usize) -> Rc<Node> {
     // n : usize is size of array
     let ubound = n as i32;
 
-    let mut i_loop_upper = Node::new_single_loop("i", 0, ubound);
+    let mut i_loop_upper = loop_node!("i", 0 => ubound);
     let mut j_loop_upper = loop_node!("j", 0 => bounds("i"));
     let mut k_loop_upper = loop_node!("k", 0 => bounds("j"));
-    let mut j_loop_lower = loop_node!("j", |i : &[i32]| i[0] => move |_: &_| ubound);
+    let mut j_loop_lower = loop_node!("j", bounds("i") => ubound);
     let mut k_loop_lower = loop_node!("k", 0 => bounds("i"));
 
     insert_at(&mut j_loop_upper, &mut i_loop_upper, "i");
@@ -898,7 +898,7 @@ pub fn ludcmp(n: usize) -> Rc<Node> {
     let mut s_ref_a9 = a_ref("a9", vec![n, n], vec!["i", "j"]);
     insert_at(&mut s_ref_a9, &mut j_loop_lower, "j");
 
-    let mut i_loop_middle = Node::new_single_loop("i", 0, ubound);
+    let mut i_loop_middle = loop_node!("i", 0 => ubound);
     let mut j_loop2 = loop_node!("j", 0 => bounds("i"));
 
     // creating w = b[i]
@@ -1086,9 +1086,9 @@ pub fn jacobi_1d(m: usize, n: usize) -> Rc<Node> {
     let ubound = n as i32;
     let tsteps = m as i32;
 
-    let mut t_loop = Node::new_single_loop("t", 0, tsteps);
-    let mut i_loop1 = Node::new_single_loop("i", 1, ubound - 1);
-    let mut i_loop2 = Node::new_single_loop("i", 1, ubound - 1);
+    let mut t_loop = loop_node!("t", 0 => tsteps);
+    let mut i_loop1 = loop_node!("i", 1 => Fixed(ubound) - Fixed(1));
+    let mut i_loop2 = loop_node!("i", 1 => Fixed(ubound) - Fixed(1));
 
     Node::extend_loop_body(&mut t_loop, &mut i_loop1);
 
@@ -1121,11 +1121,11 @@ pub fn jacobi_2d(m: usize, n: usize) -> Rc<Node> {
     let ubound = n as i32;
     let tsteps = m as i32;
 
-    let mut t_loop = Node::new_single_loop("t", 0, tsteps);
-    let mut i_loop1 = Node::new_single_loop("j", 1, ubound - 1);
-    let mut j_loop1 = Node::new_single_loop("j", 1, ubound - 1);
-    let mut i_loop2 = Node::new_single_loop("j", 1, ubound - 1);
-    let mut j_loop2 = Node::new_single_loop("j", 1, ubound - 1);
+    let mut t_loop = loop_node!("t", 0 => tsteps);
+    let mut i_loop1 = loop_node!("j", 1 => Fixed(ubound) - Fixed(1));
+    let mut j_loop1 = loop_node!("j", 1 => Fixed(ubound) - Fixed(1));
+    let mut i_loop2 = loop_node!("j", 1 => Fixed(ubound) - Fixed(1));
+    let mut j_loop2 = loop_node!("j", 1 => Fixed(ubound) - Fixed(1));
 
     loop_body(&[&mut t_loop, &mut i_loop1, &mut j_loop1]);
 
@@ -1186,8 +1186,8 @@ pub fn gesummv(n: usize) -> Rc<Node> {
     // n : usize is size of array
     let ubound = n as i32;
 
-    let mut i_loop = Node::new_single_loop("i", 0, ubound);
-    let mut j_loop = Node::new_single_loop("j", 0, ubound);
+    let mut i_loop = loop_node!("i", 0 => ubound);
+    let mut j_loop = loop_node!("j", 0 => ubound);
 
     // creating tmp[i] = 0 and y[i] = 0;
     let tmp1_y1 = ["tmp1", "y1"];
@@ -1255,7 +1255,7 @@ pub fn gemver(n: usize) -> Rc<Node> {
         insert_at_innermost(node, &mut i_loop2);
     }
 
-    let mut i_loop3 = Node::new_single_loop("i", 0, ubound);
+    let mut i_loop3 = loop_node!("i", 0 => ubound);
 
     // creating x[i] = x[i] + z[i]
     let x3_z_x4 = ["x3", "z", "x4"];
