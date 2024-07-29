@@ -46,7 +46,7 @@ pub fn access3addr(
     (ary_ref.base.unwrap() + offset) * data_size / cache_line_size
 }
 
-pub fn assign_ref_id(node: & Rc<Node>) {
+pub fn assign_ref_id(node: &Rc<Node>) {
     println!("Assigning ID...");
     let mut counter = 0;
     Walk::new(node)
@@ -113,10 +113,7 @@ impl<'a> TracingContext<'a> {
             file.write_all(header.as_bytes()).unwrap();
         }
 
-        let trace_info = format!(
-            "{},{},{}\n",
-            ary_ref.name, ary_ref.ref_id.unwrap(), addr
-        );
+        let trace_info = format!("{},{},{}\n", ary_ref.name, ary_ref.ref_id.unwrap(), addr);
         file.write_all(trace_info.as_bytes()).unwrap();
     }
 
