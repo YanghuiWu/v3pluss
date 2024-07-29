@@ -2,6 +2,8 @@
 
 use std::collections::hash_map::Entry;
 use std::collections::{BTreeSet, HashMap};
+use std::fs::OpenOptions;
+use std::io::Write;
 use std::rc::Rc;
 
 use fxhash::FxHashMap;
@@ -9,6 +11,7 @@ use tracing::debug;
 
 use dace::arybase::set_arybase;
 use dace::ast::{AryRef, BranchStmt, LoopBound, LoopStmt, Node, Stmt};
+use dace::iter::Walk;
 use hist::Hist;
 
 /// Calculate the memory address based on the array reference and index vector.
@@ -41,6 +44,22 @@ pub fn access3addr(
         .fold(0, |acc, (&i, &d)| acc * d + i);
 
     (ary_ref.base.unwrap() + offset) * data_size / cache_line_size
+}
+
+pub fn assign_ref_id(node: & Rc<Node>) {
+    println!("Assigning ID...");
+    let mut counter = 0;
+    Walk::new(node)
+        .filter(|node| matches!(&node.stmt, Stmt::Ref(_)))
+        .for_each(|mut node| {
+            let mutable = unsafe { Rc::get_mut_unchecked(&mut node) };
+            let my_ref_id = mutable.ref_only_mut_ref(|aref| &mut aref.ref_id).unwrap();
+            if my_ref_id.is_none() {
+                *my_ref_id = Some(counter);
+                counter += 1;
+            }
+        });
+    println!("number of ID assigned: {}", counter);
 }
 
 struct TracingContext<'a> {
@@ -81,10 +100,33 @@ impl<'a> TracingContext<'a> {
         }
     }
 
+    fn record_access_trace(&self, ary_ref: &AryRef, addr: u64) {
+        let file_path = "access_trace.csv";
+        let mut file = OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(file_path)
+            .unwrap();
+
+        if file.metadata().unwrap().len() == 0 {
+            let header = "Array Name,Ref ID,Address\n";
+            file.write_all(header.as_bytes()).unwrap();
+        }
+
+        let trace_info = format!(
+            "{},{},{}\n",
+            ary_ref.name, ary_ref.ref_id.unwrap(), addr
+        );
+        file.write_all(trace_info.as_bytes()).unwrap();
+    }
+
     fn handle_ref_stmt(&mut self, ary_ref: &AryRef) {
         debug!("trace_ri arr ref: {:#?}", ary_ref);
         let addr = access3addr(ary_ref, &self.ivec, self.ds, self.cls) as u64;
         debug!("addr: {}", addr);
+
+        self.record_access_trace(ary_ref, addr);
+
         let str_name = ary_ref.name.clone();
         let mut prev_counter: Option<i64> = None;
         let local_counter = self.counter;
@@ -158,6 +200,7 @@ impl<'a> TracingContext<'a> {
 pub fn tracing_ri(code: &mut Rc<Node>, data_size: usize, cache_line_size: usize) -> Hist {
     set_arybase(code);
     let mut context = TracingContext::new(code, data_size, cache_line_size);
+    assign_ref_id(code);
     let h = context.trace_ri().clone();
     println!("{}", h);
     h
