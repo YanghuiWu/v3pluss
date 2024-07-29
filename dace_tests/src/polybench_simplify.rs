@@ -2,6 +2,8 @@
 
 #![allow(dead_code, non_snake_case)]
 
+use std::rc::Rc;
+
 #[allow(unused_imports)]
 use dace::ast::LoopBound::{Affine, Dynamic, Fixed};
 use dace::ast::Node;
@@ -11,7 +13,6 @@ use dace::construct::{
     loop_body, nested_loops,
 };
 use dace::{branch_node, loop_node};
-use std::rc::Rc;
 
 pub fn lu(n: usize) -> Rc<Node> {
     let ref_a_ij = a_ref("A", vec![n, n], vec!["i", "j"]);
@@ -34,7 +35,7 @@ pub fn lu(n: usize) -> Rc<Node> {
 
     let mut i_loop_ref = loop_node!("i", 0 => ubound);
     let mut j_loop_lower_ref = loop_node!("j", 0 => bounds("i"));
-    let mut k_loop_ref_j = loop_node!("k", 0 => bounds("k"));
+    let mut k_loop_ref_j = loop_node!("k", 0 => bounds("j"));
     let mut j_loop_upper_ref = loop_node!("j", bounds("i") => ubound);
     let mut k_loop_ref_i = loop_node!("k", 0 => bounds("i"));
 
@@ -300,6 +301,7 @@ pub fn gemm(n: usize) -> Rc<Node> {
     let loop_indices = &["i", "j", "k"];
 
     let ary_sub = |loops| generate_sub_2(loop_indices, loops);
+    // let ary_sub = |loops| generate_sub(loops, loop_indices);
 
     let A0 = Node::new_ref("A", vec![n, n], ary_sub(&["i", "k"]));
     let B0 = Node::new_ref("B", vec![n, n], ary_sub(&["k", "j"]));

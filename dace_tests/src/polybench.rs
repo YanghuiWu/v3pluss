@@ -187,7 +187,7 @@ pub fn trisolv(n: usize) -> Rc<Node> {
     let mut s_ref_L2 = Node::new_ref("L", vec![n, n], |ij| vec![ij[0] as usize, ij[0] as usize]);
     // s_ref_x1
 
-    let mut j_loop_ref = Node::new_single_loop_dyn_ub("j", 0, move |i| i[0]);
+    let mut j_loop_ref = Node::new_single_loop_dyn_ub("j", 0, Box::new(move |i| i[0]));
     Node::extend_loop_body(&mut j_loop_ref, &mut s_ref_L1);
     Node::extend_loop_body(&mut j_loop_ref, &mut s_ref_x2);
     Node::extend_loop_body(&mut j_loop_ref, &mut s_ref_x3);
@@ -477,20 +477,20 @@ pub fn cholesky(n: usize) -> Rc<Node> {
 
     let mut s_ref_aii2 = Node::new_ref("a", vec![n], |ijk| vec![ijk[0] as usize]);
 
-    let mut k1_loop_ref = Node::new_single_loop_dyn_ub("k", 0, move |j| j[0]);
+    let mut k1_loop_ref = Node::new_single_loop_dyn_ub("k", 0, Box::new(move |j| j[0]));
     Node::extend_loop_body(&mut k1_loop_ref, &mut s_ref_aik1);
     Node::extend_loop_body(&mut k1_loop_ref, &mut s_ref_ajk);
     Node::extend_loop_body(&mut k1_loop_ref, &mut s_ref_aij1);
     Node::extend_loop_body(&mut k1_loop_ref, &mut s_ref_aij1);
 
-    let mut j_loop_ref = Node::new_single_loop_dyn_ub("j", 0, move |i| i[0]);
+    let mut j_loop_ref = Node::new_single_loop_dyn_ub("j", 0, Box::new(move |i| i[0]));
     Node::extend_loop_body(&mut j_loop_ref, &mut k1_loop_ref);
     Node::extend_loop_body(&mut j_loop_ref, &mut s_ref_ajj);
     Node::extend_loop_body(&mut j_loop_ref, &mut s_ref_aij2);
     Node::extend_loop_body(&mut j_loop_ref, &mut s_ref_aij2);
 
     //independent of k1 loop above, not in the same scope, they share a k variable name and A accesses elements using k for both loops
-    let mut k2_loop_ref = Node::new_single_loop_dyn_ub("k", 0, move |i| i[0]);
+    let mut k2_loop_ref = Node::new_single_loop_dyn_ub("k", 0, Box::new(move |i| i[0]));
     Node::extend_loop_body(&mut k2_loop_ref, &mut s_ref_aik2);
     Node::extend_loop_body(&mut k2_loop_ref, &mut s_ref_aik2);
     Node::extend_loop_body(&mut k2_loop_ref, &mut s_ref_aii1);
