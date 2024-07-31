@@ -30,6 +30,7 @@ pub struct AryRef {
     pub sub: Box<dyn for<'a> Fn(&'a [i32]) -> types::AryAcc>,
     pub base: Option<usize>,
     pub ref_id: Option<usize>,
+    pub access_matrix: Vec<Vec<Vec<usize>>>,
     pub ri: Vec<String>,
 }
 
@@ -318,6 +319,7 @@ impl Node {
             sub: Box::new(ary_sub),
             base: None,
             ref_id: None,
+            access_matrix: vec![],
             ri: vec![],
         };
         Node::new_node(Stmt::Ref(ref_stmt))
@@ -469,6 +471,7 @@ mod tests {
             sub: Box::new(|iv| vec![(iv[0] as usize) + 1]),
             base: None,
             ref_id: None,
+            access_matrix: vec![],
             ri: vec![],
         };
         assert_eq!((ar.sub)(&[1]), [2]);
@@ -483,6 +486,7 @@ mod tests {
             sub: Box::new(|ijk| vec![ijk[0] as usize, ijk[1] as usize]),
             base: None,
             ref_id: None,
+            access_matrix: vec![],
             ri: vec![],
         };
         assert_eq!((ar.sub)(&[1, 2, 3]), [1, 2]);

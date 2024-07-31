@@ -1,8 +1,9 @@
-use crate::tracing_ri;
-use dace_tests::polybench_simplify;
-use hist::Hist;
 use std::fs::File;
 use std::io::Write;
+
+use dace_tests::polybench_simplify;
+use hist::Hist;
+use static_ri::tracing_ri;
 
 pub fn trace_polybench(
     bench: &str,
@@ -77,10 +78,13 @@ pub fn trace_polybench(
         _ => panic!("Unknown benchmark"),
     };
 
-    let hist = tracing_ri(&mut tri, data_size, cache_line_size);
-    write_hist_to_file(&hist, "output.csv");
+    tri.print_structure(0);
+    // assign_ref_id(&tri);
+    let _hist = tracing_ri(&mut tri, data_size, cache_line_size);
+    // write_hist_to_file(&_hist, "output.csv");
 }
 
+#[allow(dead_code)]
 fn write_hist_to_file(hist: &Hist, file_path: &str) {
     let mut file = File::create(file_path).expect("Unable to create file");
     write!(file, "{}", hist).expect("Unable to write to file");

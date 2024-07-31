@@ -1,13 +1,12 @@
 #![allow(internal_features)] // to hide the warning of using unstable features for the line below
 #![feature(core_intrinsics)]
 #![feature(get_mut_unchecked)]
+#![allow(dead_code)]
 
-use std::collections::HashMap;
 use std::rc::Rc;
 
 use dace::ast::{AryRef, Node, Stmt};
 
-#[allow(dead_code)]
 fn count_arr_refs(node: &Node) -> usize {
     let mut count = 0;
 
@@ -29,7 +28,6 @@ fn count_arr_refs(node: &Node) -> usize {
     count
 }
 
-#[allow(dead_code)]
 fn print_ri_and_count_arr_refs(node: &Node) -> usize {
     let mut count = 0;
 
@@ -54,38 +52,10 @@ fn print_ri_and_count_arr_refs(node: &Node) -> usize {
     count
 }
 
-#[allow(dead_code)]
-// Calculate reuse intervals
-fn calculate_reuse_intervals(
-    node: &mut Rc<Node>,
-    loop_ranks: &mut HashMap<String, i32>,
-    num_arr_refs: usize,
-) {
-    let node = unsafe { Rc::get_mut_unchecked(node) };
-    match &mut node.stmt {
-        Stmt::Ref(arr_ref_stmt) => {
-            determine_reuse_intervals(arr_ref_stmt, loop_ranks, num_arr_refs);
-        }
-        Stmt::Loop(loop_stmt) => {
-            loop_ranks.insert(loop_stmt.iv.clone(), loop_stmt.rank);
-            for child in &mut loop_stmt.body {
-                calculate_reuse_intervals(child, loop_ranks, num_arr_refs);
-            }
-        }
-        Stmt::Block(block_stmt) => {
-            for child in block_stmt {
-                calculate_reuse_intervals(child, loop_ranks, count_arr_refs(child));
-            }
-        }
-        _ => {}
-    }
-}
-
-#[allow(dead_code)]
-fn access_matrix(arr_ref_stmt: &mut AryRef, loops: Vec<String>) -> Vec<Vec<u8>> {
-    let mut matrix: Vec<Vec<u8>> = Vec::new();
+fn access_matrix(arr_ref_stmt: &mut AryRef, loops: Vec<String>) -> Vec<Vec<usize>> {
+    let mut matrix: Vec<Vec<usize>> = Vec::new();
     for i in loops {
-        let mut dim: Vec<u8> = Vec::with_capacity(arr_ref_stmt.indices.len());
+        let mut dim: Vec<usize> = Vec::with_capacity(arr_ref_stmt.indices.len());
         for j in arr_ref_stmt.indices.clone() {
             if j == i {
                 dim.push(1);
@@ -96,18 +66,20 @@ fn access_matrix(arr_ref_stmt: &mut AryRef, loops: Vec<String>) -> Vec<Vec<u8>> 
         }
         matrix.push(dim);
     }
-    //print!("{:?}\n\n", matrix);
+    print!("{:?}\n\n", matrix);
     matrix
 }
 
-#[allow(dead_code)]
-fn matrix_production(node: &mut Rc<Node>, loops: &mut Vec<String>) -> Vec<Vec<Vec<u8>>> {
+fn matrix_production(node: &mut Rc<Node>, loops: &mut Vec<String>) -> Vec<Vec<Vec<usize>>> {
     let node = unsafe { Rc::get_mut_unchecked(node) };
-    let mut matrix: Vec<Vec<Vec<u8>>> = Vec::new();
+    let mut matrix: Vec<Vec<Vec<usize>>> = Vec::new();
+
     match &mut node.stmt {
         Stmt::Ref(arr_ref_stmt) => {
-            // call some other function which returns Vec<Vec<u8>> which is then pushed to matrix
-            matrix.push(access_matrix(arr_ref_stmt, loops.to_vec()));
+            // call some other function which returns Vec<Vec<usize>> which is then pushed to matrix
+            let access_matrix = access_matrix(arr_ref_stmt, loops.to_vec());
+            matrix.push(access_matrix.clone());
+            arr_ref_stmt.access_matrix.push(access_matrix);
             //return matrix;
             //print!("MATRIX TEST {:?}\n\n", matrix);
         }
@@ -116,6 +88,7 @@ fn matrix_production(node: &mut Rc<Node>, loops: &mut Vec<String>) -> Vec<Vec<Ve
             for child in &mut loop_stmt.body {
                 matrix.extend(matrix_production(child, loops));
             }
+            // loops.pop();
         }
         Stmt::Block(block_stmt) => {
             for child in block_stmt {
@@ -125,66 +98,13 @@ fn matrix_production(node: &mut Rc<Node>, loops: &mut Vec<String>) -> Vec<Vec<Ve
         _ => {}
     }
 
+    // print the node and the matrix
+    // println!("Node: {:?}", node);
+    // println!("Matrix: {:?}\n", matrix);
     matrix
 }
 
-#[allow(dead_code)]
-/// Determine reuse intervals based on the prompt's criteria
-fn determine_reuse_intervals(
-    arr_ref_stmt: &mut AryRef,
-    loop_ranks: &mut HashMap<String, i32>,
-    num_arr_refs: usize,
-) -> Vec<String> {
-    let max_rank = *loop_ranks.values().max().unwrap_or(&0);
-    println!("{} is under {} loops", arr_ref_stmt.name, max_rank + 1);
-    let indices = (arr_ref_stmt.sub)(&[0, 1, 2, 3]);
-    let named_indices: Vec<String> = indices
-        .iter()
-        .map(|val| match val {
-            0 => "i".to_string(),
-            1 => "j".to_string(),
-            2 => "k".to_string(),
-            3 => "l".to_string(),
-            _ => format!("Dimension > 3: {}", val),
-        })
-        .collect();
-    let mut ri_values = vec![];
-    // search for the ranks of the indices
-    let mut f_rank = *loop_ranks.get(&named_indices[0]).unwrap_or(&0);
-    let p_rank;
-    if named_indices.len() > 1 {
-        p_rank = *loop_ranks.get(&named_indices[1]).unwrap_or(&0);
-    } else {
-        p_rank = f_rank;
-        f_rank = i32::MAX;
-    }
-    // print!("f_rank: {}, p_rank: {}\n", f_rank, p_rank);
-
-    if f_rank > p_rank || (f_rank != 0 && p_rank != 0) {
-        ri_values.push(format!("{}", num_arr_refs));
-    }
-
-    if (f_rank == 0 || p_rank == 0) && !(f_rank == 1 && p_rank == 0) && max_rank > 0 {
-        ri_values.push(format!("{}n", num_arr_refs));
-    }
-
-    if ((f_rank == 1 && p_rank == 2)
-        || ((f_rank - p_rank).abs() == 1 && (f_rank == 0 || p_rank == 0)))
-        && max_rank > 1
-    {
-        ri_values.push(format!("{}n^2", num_arr_refs));
-    }
-
-    if f_rank == max_rank || p_rank == max_rank {
-        ri_values.push("inf".to_string()); // Meaning Infinite
-    }
-
-    arr_ref_stmt.ri = ri_values.clone();
-    ri_values
-}
-
-#[allow(dead_code)]
-fn find_locality_position(matrix: Vec<Vec<u8>>) -> i32 {
+fn find_locality_position(matrix: Vec<Vec<usize>>) -> i32 {
     let mut locality_position: i32 = -1;
     for (i, vec) in matrix.iter().enumerate() {
         if let Some(&last) = vec.last() {
@@ -197,10 +117,9 @@ fn find_locality_position(matrix: Vec<Vec<u8>>) -> i32 {
     locality_position
 }
 
-#[allow(dead_code)]
-fn generalized_determine_reuse_intervals(matrixes: Vec<Vec<Vec<u8>>>, references: Vec<&str>) {
+fn generalized_determine_reuse_intervals(matrixes: Vec<Vec<Vec<usize>>>, references: Vec<&str>) {
     for (ref_index, reference) in references.iter().enumerate() {
-        let access_vector: Vec<u8> = matrixes[ref_index]
+        let access_vector: Vec<usize> = matrixes[ref_index]
             .iter()
             .map(|dim| if dim.iter().any(|&x| x == 1) { 1 } else { 0 })
             .collect();
@@ -208,51 +127,37 @@ fn generalized_determine_reuse_intervals(matrixes: Vec<Vec<Vec<u8>>>, references
         let locality_position: i32 = find_locality_position(matrixes[ref_index].clone());
 
         println!("{reference} ri probability distribution:");
-        println!("{:?}", access_vector);
+        println!("access_vector: {:?}", access_vector);
+
         let constant: usize = references.len();
-        let mut _curr: String;
         let mut prior: String = String::from("");
         let mut zero_count: usize = access_vector.iter().filter(|&&x| x == 0).count();
-        for loop_index in 0..access_vector.len() {
-            if (access_vector.len() == loop_index + 1)
-                || ((access_vector.len() != loop_index + 1) & (access_vector[loop_index + 1] == 1))
-            {
-                // if (access_vector[loop_index] == 0 || loop_index as i32 == locality_position)
-                //     & ((access_vector.len() == loop_index + 1)
-                //         || ((access_vector.len() != loop_index + 1)
-                //             & (access_vector[loop_index + 1] == 1)))
-                // {
-                let mut ri_occurs: bool = true;
+
+        for (loop_index, &value) in access_vector.iter().enumerate() {
+            if loop_index + 1 == access_vector.len() || access_vector[loop_index + 1] == 1 {
                 let curr = match loop_index as i32 {
                     x if x == locality_position => prior.replace('b', ""),
-                    x if (x > locality_position) & (access_vector[loop_index] == 0) => {
+                    x if x > locality_position && value == 0 => {
                         zero_count -= 1;
-                        let mut prob = String::from("1/n^");
-                        prob.push_str(&zero_count.to_string());
-                        prob
+                        format!("1/n^{}", zero_count)
                     }
-                    x if (x < locality_position) & (access_vector[loop_index] == 0) => {
+                    x if x < locality_position && value == 0 => {
                         zero_count -= 1;
-                        let mut prob = String::from("1/b*n^");
-                        prob.push_str(&zero_count.to_string());
-                        prob
+                        format!("1/b*n^{}", zero_count)
                     }
                     _ => {
-                        ri_occurs = false;
-                        String::from("")
+                        continue;
                     }
                 };
 
-                if ri_occurs {
-                    let power: usize = access_vector.len() - loop_index - 1;
-
-                    if prior.is_empty() {
-                        println!("{constant}n^{power}: {curr}");
-                    } else {
-                        println!("{constant}n^{power}: {curr} - {prior}");
-                    }
-                    prior = curr;
+                let power: usize = access_vector.len() - loop_index - 1;
+                if prior.is_empty() {
+                    println!("{}n^{}: {}", constant, power, curr);
+                } else {
+                    println!("{}n^{}: {} - {}", constant, power, curr, prior);
                 }
+
+                prior = curr;
             }
         }
 
@@ -267,6 +172,27 @@ mod tests {
     use dace_tests::polybench_simplify;
 
     use super::*;
+
+    #[test]
+    fn simple_test() {
+        let n = 10; // array dim
+        let i_loop = Node::new_single_loop("i", 0, n);
+        let j_loop = Node::new_single_loop("j", 0, n);
+
+        let mut ref_c = construct::squ_ref("C", n, vec!["j"]);
+
+        let mut nested_loops_top = construct::nest_the_loops(vec![i_loop, j_loop]);
+        dace::construct::insert_at_innermost(&mut ref_c, &mut nested_loops_top);
+
+        nested_loops_top.print_structure(0);
+
+        construct::assign_ranks(&mut nested_loops_top, 0);
+        let references: Vec<&str> = vec!["C"];
+
+        let loop_matrixes: Vec<Vec<Vec<usize>>> =
+            matrix_production(&mut nested_loops_top, &mut Vec::new());
+        generalized_determine_reuse_intervals(loop_matrixes, references);
+    }
 
     #[test]
     fn higer_dim_loop_test() {
@@ -305,11 +231,12 @@ mod tests {
         let mut nested_loops_top: Rc<Node> = construct::nest_the_loops(loop_order);
         let references: Vec<&str> = vec!["C", "A", "B", "D", "E", "F"];
 
+        nested_loops_top.print_structure(0);
         // rank assignment for loops
         construct::assign_ranks(&mut nested_loops_top, 0);
         // loop matrix is found where for each array access we store essentially a 2d
         // array by dimension and if a given loop has an influnce on a respective dimension
-        let loop_matrixes: Vec<Vec<Vec<u8>>> =
+        let loop_matrixes: Vec<Vec<Vec<usize>>> =
             matrix_production(&mut nested_loops_top, &mut Vec::new());
         print!("{:?}\n\n", loop_matrixes);
         generalized_determine_reuse_intervals(loop_matrixes, references);
@@ -349,7 +276,7 @@ mod tests {
 
         // loop matrix is found where for each array access we store essentially a 2d
         // array by dimension and if a given loop has an influnce on a respective dimension
-        let loop_matrixes: Vec<Vec<Vec<u8>>> =
+        let loop_matrixes: Vec<Vec<Vec<usize>>> =
             matrix_production(&mut nested_loops_top, &mut Vec::new());
         //print!("{:?}\n\n", loop_matrixes);
         generalized_determine_reuse_intervals(loop_matrixes, references);
@@ -374,8 +301,8 @@ mod tests {
         let mut bench = polybench_simplify::symm(1024, 1024);
         construct::assign_ranks(&mut bench, 0);
         bench.print_structure(0);
-        let arr_refs = count_arr_refs(&bench);
-        calculate_reuse_intervals(&mut bench, &mut HashMap::new(), arr_refs);
+        // let arr_refs = count_arr_refs(&bench);
+        // calculate_reuse_intervals(&mut bench, &mut HashMap::new(), arr_refs);
         print_ri_and_count_arr_refs(&bench);
 
         // let result = trace(&mut bench, LRUStack::new());

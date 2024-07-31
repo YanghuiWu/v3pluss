@@ -1,7 +1,7 @@
-use crate::ast::{Node, Stmt};
 use std::{collections::HashMap, rc::Rc};
 
 use crate::ast;
+use crate::ast::{Node, Stmt};
 use crate::types;
 
 //Giordan's method for nest_loops that Woody (had already) made below.
@@ -123,6 +123,7 @@ pub fn a_ref(nm: &str, dim: Vec<usize>, ind: Vec<&str>) -> Rc<Node> {
         sub: Box::new(|_i| vec![0]),
         base: None,
         ref_id: None,
+        access_matrix: vec![],
         ri: vec![],
     };
     Node::new_node(ast::Stmt::Ref(ref_stmt))
@@ -150,16 +151,7 @@ pub fn a_ref(nm: &str, dim: Vec<usize>, ind: Vec<&str>) -> Rc<Node> {
 pub fn squ_ref(nm: &str, dim: i32, ind: Vec<&str>) -> Rc<Node> {
     let dim = dim as usize;
     let dimensions = vec![dim; ind.len()]; // Create a vector with the dimension repeated for each index
-    let ref_stmt = ast::AryRef {
-        name: nm.to_string(),
-        dim: dimensions,
-        indices: ind.iter().map(|s| s.to_string()).collect(),
-        sub: Box::new(|_i| vec![0]),
-        base: None,
-        ref_id: None,
-        ri: vec![],
-    };
-    Node::new_node(ast::Stmt::Ref(ref_stmt))
+    a_ref(nm, dimensions, ind)
 }
 
 pub fn insert_at(node: &mut Rc<Node>, head: &mut Rc<Node>, iv: &str) -> bool {
@@ -192,9 +184,9 @@ pub fn insert_at(node: &mut Rc<Node>, head: &mut Rc<Node>, iv: &str) -> bool {
     }
 }
 
-pub fn insert_at_innermost(node: &mut Rc<Node>, head: &mut Rc<Node>) -> String {
-    let target = assign_ranks(head, 0);
-    let b = insert_at(node, head, &target.loop_only(|lp| lp.iv.clone()).unwrap());
+pub fn insert_at_innermost(node: &mut Rc<Node>, loops: &mut Rc<Node>) -> String {
+    let target = assign_ranks(loops, 0);
+    let b = insert_at(node, loops, &target.loop_only(|lp| lp.iv.clone()).unwrap());
     // head.print_structure(0);
     if b {
         target.loop_only(|lp| lp.iv.clone()).unwrap()
@@ -238,38 +230,6 @@ pub fn assign_ranks_reverse(node: &mut Rc<Node>) -> i32 {
     }
 }
 
-// #[allow(dead_code)]
-// fn assign_ranks(node: &mut Rc<Node>, current_rank: i32) -> i32 {
-//     let node = unsafe { Rc::get_mut_unchecked(node) };
-//     match &mut node.stmt {
-//         Stmt::Loop(loop_stmt) => unsafe {
-//             // Assign the current rank to this loop
-//             loop_stmt.rank = current_rank;
-//
-//             // Recursively assign ranks to the loops in the body
-//             let max_inner_rank = loop_stmt
-//                 .body
-//                 .iter_mut()
-//                 .map(|child| assign_ranks(child, current_rank + 1))
-//                 .max()
-//                 .unwrap_or(current_rank);
-//
-//             max_inner_rank
-//         },
-//         Stmt::Block(block_stmt) => unsafe {
-//             // Recursively assign ranks to the loops in the body
-//             let max_inner_rank = block_stmt
-//                 .iter_mut()
-//                 .map(|child| assign_ranks(child, current_rank))
-//                 .max()
-//                 .unwrap_or(current_rank);
-//
-//             max_inner_rank
-//         },
-//         _ => current_rank,
-//     }
-// }
-
 /// Assign ranks to the loops in the AST. and return the node with the highest rank.
 pub fn assign_ranks(node: &mut Rc<Node>, current_rank: i32) -> Rc<Node> {
     let cur = Rc::clone(node);
@@ -294,10 +254,8 @@ pub fn assign_ranks(node: &mut Rc<Node>, current_rank: i32) -> Rc<Node> {
             } else {
                 Rc::clone(node)
             }
-            // max_rank_node
         }
         Stmt::Block(block_stmt) => {
-            // Recursively assign ranks to the loops in the body and find the node with the highest rank
             let max_inner_rank = block_stmt
                 .iter_mut()
                 .map(|child| assign_ranks(child, current_rank))

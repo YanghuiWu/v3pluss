@@ -2,6 +2,7 @@
 
 use std::collections::hash_map::Entry;
 use std::collections::{BTreeSet, HashMap};
+use std::fs;
 use std::fs::OpenOptions;
 use std::io::Write;
 use std::rc::Rc;
@@ -62,6 +63,32 @@ pub fn assign_ref_id(node: &Rc<Node>) {
     println!("number of ID assigned: {}", counter);
 }
 
+fn record_access_trace(ary_ref: &AryRef, ri: Option<usize>, addr: u64, counter: i64) {
+    fs::create_dir_all("out").expect("Failed to create the output folder.");
+    let file_path = "out/access_trace.csv";
+    let mut file = OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(file_path)
+        .unwrap();
+
+    if file.metadata().unwrap().len() == 0 {
+        let header = "Ref ID,Reuse Interval,Address,Counter\n";
+        file.write_all(header.as_bytes()).unwrap();
+    }
+
+    let trace_info = format!(
+        // "{},{},{},{},{}\n",
+        // ary_ref.name,
+        "{},{},{},{}\n",
+        ary_ref.ref_id.unwrap_or(usize::MAX),
+        ri.unwrap_or(usize::MAX), // TODO: handle None with danning recursion
+        addr,
+        counter
+    );
+    file.write_all(trace_info.as_bytes()).unwrap();
+}
+
 struct TracingContext<'a> {
     lat_hash: FxHashMap<String, FxHashMap<u64, i64>>,
     hist: Hist,
@@ -100,30 +127,8 @@ impl<'a> TracingContext<'a> {
         }
     }
 
-    fn record_access_trace(&self, ary_ref: &AryRef, addr: u64) {
-        let file_path = "access_trace.csv";
-        let mut file = OpenOptions::new()
-            .create(true)
-            .append(true)
-            .open(file_path)
-            .unwrap();
-
-        if file.metadata().unwrap().len() == 0 {
-            let header = "Array Name,Ref ID,Address\n";
-            file.write_all(header.as_bytes()).unwrap();
-        }
-
-        let trace_info = format!("{},{},{}\n", ary_ref.name, ary_ref.ref_id.unwrap(), addr);
-        file.write_all(trace_info.as_bytes()).unwrap();
-    }
-
     fn handle_ref_stmt(&mut self, ary_ref: &AryRef) {
-        debug!("trace_ri arr ref: {:#?}", ary_ref);
         let addr = access3addr(ary_ref, &self.ivec, self.ds, self.cls) as u64;
-        debug!("addr: {}", addr);
-
-        self.record_access_trace(ary_ref, addr);
-
         let str_name = ary_ref.name.clone();
         let mut prev_counter: Option<i64> = None;
         let local_counter = self.counter;
@@ -145,6 +150,7 @@ impl<'a> TracingContext<'a> {
         }
 
         let ri = prev_counter.map(|prev| (local_counter - prev) as usize);
+        record_access_trace(ary_ref, ri, addr, self.counter);
         self.hist.add_dist(ri);
         // FIXME: hist seems weird, how to deal with -1(the ri of never accessed again elements)
 
@@ -156,14 +162,35 @@ impl<'a> TracingContext<'a> {
     }
 
     fn handle_loop_stmt(&mut self, aloop: &LoopStmt) {
-        if let (LoopBound::Fixed(lb), LoopBound::Fixed(ub)) = (&aloop.lb, &aloop.ub) {
-            for i in *lb..*ub {
-                self.ivec.push(i);
-                aloop.body.iter().for_each(|stmt| self.trace_node(stmt));
-                self.ivec.pop(); // TODO: check if this is correct. Added.
+        let mut lb = match &aloop.lb {
+            LoopBound::Fixed(val) => *val,
+            LoopBound::Dynamic(func) => func(&self.ivec),
+            _ => {
+                panic!("affine bounds are not supported");
             }
-        } else {
-            panic!("Dynamic loop bounds are not supported");
+        };
+
+        let ub = match &aloop.ub {
+            LoopBound::Fixed(val) => *val,
+            LoopBound::Dynamic(func) => func(&self.ivec),
+            _ => {
+                panic!("affine bounds are not supported");
+            }
+        };
+
+        // println!("lb: {}, ub: {}", lb, ub);
+
+        // for i in lb..ub {
+        //     self.ivec.push(i);
+        //     aloop.body.iter().for_each(|stmt| self.trace_node(stmt));
+        //     self.ivec.pop();
+        // }
+
+        while (aloop.test)(lb, ub) {
+            self.ivec.push(lb);
+            aloop.body.iter().for_each(|stmt| self.trace_node(stmt));
+            lb = (aloop.step)(lb);
+            self.ivec.pop();
         }
     }
 
@@ -196,23 +223,30 @@ impl<'a> TracingContext<'a> {
 
 pub fn tracing_ri(code: &mut Rc<Node>, data_size: usize, cache_line_size: usize) -> Hist {
     set_arybase(code);
-    let mut context = TracingContext::new(code, data_size, cache_line_size);
     assign_ref_id(code);
-    let h = context.trace_ri().clone();
+    let mut context = TracingContext::new(code, data_size, cache_line_size);
+
+    // Check if the file exists and remove it if it does
+    let file_path = "out/access_trace.csv";
+    if std::path::Path::new(file_path).exists() {
+        fs::remove_file(file_path).expect("Failed to remove the file.");
+    }
+
+    let h = context.trace_ri();
     println!("{}", h);
     h
 }
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use dace::construct;
+
+    use super::*;
 
     #[test]
     fn test_access3addr_and_tracing() {
-        let n: usize = 10; // array dim
-        let ubound = n as i32; // loop bound
-        let mut nested_loops_top = construct::nested_loops(&["i", "j", "k"], ubound);
+        let n = 10;
+        let mut nested_loops_top = construct::nested_loops(&["i", "j", "k"], n as i32);
 
         let ref_c = construct::a_ref("C", vec![n, n], vec!["i", "j"]);
         let ref_a = construct::a_ref("A", vec![n, n], vec!["i", "k"]);
@@ -224,6 +258,7 @@ mod tests {
             construct::insert_at(a_ref, &mut nested_loops_top, "k");
         }
 
+        nested_loops_top.print_structure(0);
         set_arybase(&nested_loops_top);
 
         println!("{:?}", ref_c.stmt);
