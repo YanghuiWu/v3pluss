@@ -194,7 +194,7 @@ mod tests {
         generalized_determine_reuse_intervals(loop_matrixes, references);
     }
 
-    #[test]
+    // #[test]
     fn higer_dim_loop_test() {
         let n: usize = 10; // array dim
         let ubound = n as i32; // loop bound

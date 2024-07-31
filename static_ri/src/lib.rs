@@ -97,6 +97,7 @@ struct TracingContext<'a> {
     counter: i64,
     ds: usize,
     cls: usize,
+    record_trace: bool,
 }
 
 impl<'a> TracingContext<'a> {
@@ -109,6 +110,7 @@ impl<'a> TracingContext<'a> {
             counter: 0,
             ds,
             cls, //64
+            record_trace: false,
         }
     }
 
@@ -150,7 +152,9 @@ impl<'a> TracingContext<'a> {
         }
 
         let ri = prev_counter.map(|prev| (local_counter - prev) as usize);
-        record_access_trace(ary_ref, ri, addr, self.counter);
+        if self.record_trace {
+            record_access_trace(ary_ref, ri, addr, self.counter);
+        }
         self.hist.add_dist(ri);
         // FIXME: hist seems weird, how to deal with -1(the ri of never accessed again elements)
 
@@ -225,6 +229,21 @@ pub fn tracing_ri(code: &mut Rc<Node>, data_size: usize, cache_line_size: usize)
     set_arybase(code);
     assign_ref_id(code);
     let mut context = TracingContext::new(code, data_size, cache_line_size);
+
+    let h = context.trace_ri();
+    println!("{}", h);
+    h
+}
+
+pub fn tracing_ri_with_trace(
+    code: &mut Rc<Node>,
+    data_size: usize,
+    cache_line_size: usize,
+) -> Hist {
+    set_arybase(code);
+    assign_ref_id(code);
+    let mut context = TracingContext::new(code, data_size, cache_line_size);
+    context.record_trace = true;
 
     // Check if the file exists and remove it if it does
     let file_path = "out/access_trace.csv";

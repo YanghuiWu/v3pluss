@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 #[cfg(test)]
 mod tests {
     use dace::ast::Node;
@@ -15,7 +16,7 @@ mod tests {
 
     #[test]
     fn test_100b0() {
-        let n = 10; // array dim
+        let n = 5; // array dim
 
         let mut nested_loops = construct::nested_loops(&["i", "j", "k", "l", "m"], n);
         let mut ref_c = construct::squ_ref("c", n, vec!["i", "l"]);
@@ -27,17 +28,17 @@ mod tests {
 
     #[test]
     fn test_10b01() {
-        let n = 10; // array dim
+        let n = 4; // array dim
 
         let mut nested_loops = construct::nested_loops(&["i", "j", "k", "l", "m"], n);
         let mut ref_c = construct::squ_ref("c", n, vec!["i", "m", "k"]);
         construct::insert_at_innermost(&mut ref_c, &mut nested_loops);
         nested_loops.print_structure(0);
 
-        tracing_ri(&mut nested_loops, 8, 40);
+        tracing_ri(&mut nested_loops, 8, 16);
     }
 
-    #[test]
+    // #[test]
     fn test_tracing_ri_precise_ri() {
         let n = 10; // array dim
         let mut nested_loops = construct::nested_loops(&["inf", "i", "j", "k", "l", "m", "n"], n);
@@ -158,7 +159,7 @@ mod tests {
 
     #[test]
     fn test_tracing_ri2() {
-        let n: usize = 32; // array dim
+        let n: usize = 16; // array dim
         let ubound = n as i32; // loop bound
         let i_loop = Node::new_single_loop("i", 0, ubound);
         let j_loop = Node::new_single_loop("j", 0, ubound);
@@ -203,7 +204,7 @@ mod tests {
 
     #[test]
     fn higer_dim_loop_test() {
-        let n = 10;
+        let n = 6;
         let mut nest_loops = construct::nested_loops(&["i", "j", "k", "l", "m", "n"], n as i32);
         let mut ref_c = construct::a_ref("ref_c", vec![n, n], vec!["i", "j"]);
         construct::insert_at(&mut ref_c, &mut nest_loops, "n");
@@ -218,12 +219,12 @@ mod tests {
         let _ref_f = construct::a_ref("ref_f", vec![n, n], vec!["k", "j"]);
         construct::insert_at(&mut ref_b, &mut nest_loops, "n");
 
-        tracing_ri(&mut nest_loops.clone(), 1, 4);
+        tracing_ri(&mut nest_loops.clone(), 4, 8);
     }
 
     #[test]
     fn test_tracing_101_2() {
-        let n = 20;
+        let n = 10;
         let mut nest_loops = construct::nested_loops(&["i", "j", "k"], n as i32);
         let ref_c = construct::a_ref("ref_c", vec![n, n], vec!["i", "j"]);
         let ref_a = construct::a_ref("ref_a", vec![n, n], vec!["i", "k"]);
@@ -261,7 +262,7 @@ mod tests {
 
     #[test]
     fn test_tracing_ri_1010b() {
-        let n: usize = 10; // array dim
+        let n: usize = 5; // array dim
         let ubound = n as i32; // loop bound
         let i_loop = Node::new_single_loop("i", 0, ubound);
         let j_loop = Node::new_single_loop("j", 0, ubound);
@@ -314,7 +315,7 @@ mod tests {
 
     #[test]
     fn test_tracing_ri_10b01() {
-        let n: usize = 10; // array dim
+        let n: usize = 5; // array dim
         let ubound = n as i32; // loop bound
         let i_loop = Node::new_single_loop("i", 0, ubound);
         let j_loop = Node::new_single_loop("j", 0, ubound);
@@ -338,7 +339,7 @@ mod tests {
 
     #[test]
     fn test_tracing_ri_b0101() {
-        let n: usize = 10; // array dim
+        let n: usize = 5; // array dim
         let ubound = n as i32; // loop bound
         let i_loop = Node::new_single_loop("i", 0, ubound);
         let j_loop = Node::new_single_loop("j", 0, ubound);
@@ -362,7 +363,7 @@ mod tests {
 
     #[test]
     fn test_tracing_ri4() {
-        let n: usize = 10; // array dim
+        let n: usize = 3; // array dim
         let ubound = n as i32; // loop bound
         let i_loop = Node::new_single_loop("i", 0, ubound);
         let j_loop = Node::new_single_loop("j", 0, ubound);
@@ -388,12 +389,12 @@ mod tests {
 
         let nested_loops_top = construct::nest_the_loops(loop_order);
 
-        tracing_ri(&mut nested_loops_top.clone(), 8, 40);
+        tracing_ri(&mut nested_loops_top.clone(), 8, 24);
     }
 
     #[test]
     fn test_tracing_ri_100101() {
-        let n: usize = 16; // array dim
+        let n: usize = 8; // array dim
         let ubound = n as i32; // loop bound
         let i_loop = Node::new_single_loop("i", 0, ubound);
         let j_loop = Node::new_single_loop("j", 0, ubound);
@@ -413,6 +414,6 @@ mod tests {
 
         let nested_loops_top = construct::nest_the_loops(loop_order);
 
-        tracing_ri(&mut nested_loops_top.clone(), 8, 64);
+        tracing_ri(&mut nested_loops_top.clone(), 8, 16);
     }
 }

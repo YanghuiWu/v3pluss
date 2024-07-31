@@ -3,7 +3,7 @@ use std::io::Write;
 
 use dace_tests::polybench_simplify;
 use hist::Hist;
-use static_ri::tracing_ri;
+use static_ri::tracing_ri_with_trace;
 
 pub fn trace_polybench(
     bench: &str,
@@ -80,7 +80,7 @@ pub fn trace_polybench(
 
     tri.print_structure(0);
     // assign_ref_id(&tri);
-    let _hist = tracing_ri(&mut tri, data_size, cache_line_size);
+    let _hist = tracing_ri_with_trace(&mut tri, data_size, cache_line_size);
     // write_hist_to_file(&_hist, "output.csv");
 }
 

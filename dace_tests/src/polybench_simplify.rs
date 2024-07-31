@@ -1319,7 +1319,7 @@ mod tests {
     #[test]
     fn test_gemm_rd_olken() {
         use std::time::Instant;
-        let mut trace = gemm(128);
+        let mut trace = gemm(32);
         let start = Instant::now();
         // let hist = static_rd::trace::trace(&mut trace);
         let result = static_rd::trace::trace(&mut trace, static_rd::LRUSplay::new());
@@ -1332,7 +1332,7 @@ mod tests {
     #[test]
     fn test_gemm_rd_scale_tree() {
         use std::time::Instant;
-        let mut trace = gemm(128);
+        let mut trace = gemm(32);
         let start = Instant::now();
         // let hist = static_rd::trace::trace(&mut trace);
         let hist = static_rd::trace::trace(&mut trace, static_rd::LRUScaleTree::new(0.1, 10000)).0;

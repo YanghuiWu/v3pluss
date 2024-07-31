@@ -26,4 +26,4 @@ Cargo.lock
 .vscode
 flamegraph.svg
 perf.data*
-/out
+**/out
